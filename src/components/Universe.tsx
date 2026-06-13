@@ -27,16 +27,27 @@ interface PlanetDef {
   radius: number;
   spin: number;
   tilt?: number;
+  bump?: number;
   ring?: { inner: number; outer: number; map: string };
   clouds?: boolean;
+  atmosphere?: { color: string; intensity: number };
   moon?: { radius: number; distance: number; speed: number };
 }
 
 const SUN_POS: [number, number, number] = [-15, 5, 10];
 
 const PLANETS: PlanetDef[] = [
-  { name: "Mercury", map: "mercury.jpg", position: [7, -2, -6], radius: 0.9, spin: 0.12 },
-  { name: "Venus", map: "venus.jpg", position: [-9, 3, -20], radius: 1.5, spin: 0.08, tilt: 0.05 },
+  { name: "Mercury", map: "mercury.jpg", position: [7, -2, -6], radius: 0.9, spin: 0.12, bump: 0.045 },
+  {
+    name: "Venus",
+    map: "venus.jpg",
+    position: [-9, 3, -20],
+    radius: 1.5,
+    spin: 0.08,
+    tilt: 0.05,
+    bump: 0.02,
+    atmosphere: { color: "#e8c98a", intensity: 0.7 }
+  },
   {
     name: "Earth",
     map: "earth.jpg",
@@ -44,11 +55,13 @@ const PLANETS: PlanetDef[] = [
     radius: 1.7,
     spin: 0.32,
     tilt: 0.41,
+    bump: 0.05,
     clouds: true,
+    atmosphere: { color: "#5b9bff", intensity: 1.25 },
     moon: { radius: 0.46, distance: 3.1, speed: 0.6 }
   },
-  { name: "Mars", map: "mars.jpg", position: [-8.5, 2.4, -48], radius: 1.15, spin: 0.3, tilt: 0.44 },
-  { name: "Jupiter", map: "jupiter.jpg", position: [12, 4.5, -66], radius: 4.4, spin: 0.5, tilt: 0.05 },
+  { name: "Mars", map: "mars.jpg", position: [-8.5, 2.4, -48], radius: 1.15, spin: 0.3, tilt: 0.44, bump: 0.06, atmosphere: { color: "#e0875a", intensity: 0.5 } },
+  { name: "Jupiter", map: "jupiter.jpg", position: [12, 4.5, -66], radius: 4.4, spin: 0.5, tilt: 0.05, atmosphere: { color: "#d9b98c", intensity: 0.45 } },
   {
     name: "Saturn",
     map: "saturn.jpg",
@@ -58,8 +71,8 @@ const PLANETS: PlanetDef[] = [
     tilt: 0.47,
     ring: { inner: 4.4, outer: 7.4, map: "saturn_ring.jpg" }
   },
-  { name: "Uranus", map: "uranus.jpg", position: [9.5, 3.5, -104], radius: 2.3, spin: 0.3, tilt: 1.7 },
-  { name: "Neptune", map: "neptune.jpg", position: [-10.5, -2.5, -122], radius: 2.2, spin: 0.32, tilt: 0.49 }
+  { name: "Uranus", map: "uranus.jpg", position: [9.5, 3.5, -104], radius: 2.3, spin: 0.3, tilt: 1.7, atmosphere: { color: "#9fe6ea", intensity: 0.8 } },
+  { name: "Neptune", map: "neptune.jpg", position: [-10.5, -2.5, -122], radius: 2.2, spin: 0.32, tilt: 0.49, atmosphere: { color: "#5a78ff", intensity: 0.95 } }
 ];
 
 const NEPTUNE_Z = -122;
@@ -91,6 +104,62 @@ function SaturnRing({ inner, outer, map }: { inner: number; outer: number; map: 
   );
 }
 
+// Fresnel rim shell that reads as a planet's atmosphere/limb glow.
+function makeAtmosphereMaterial(color: string, intensity: number) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(color) },
+      uIntensity: { value: intensity }
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vView = mv.xyz;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying vec3 vNormal;
+      varying vec3 vView;
+      uniform vec3 uColor;
+      uniform float uIntensity;
+      void main() {
+        vec3 viewDir = normalize(-vView);
+        float rim = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 3.0);
+        gl_FragColor = vec4(uColor, rim * uIntensity);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide,
+    depthWrite: false
+  });
+}
+
+function Atmosphere({
+  radius,
+  color,
+  intensity
+}: {
+  radius: number;
+  color: string;
+  intensity: number;
+}) {
+  const material = useMemo(
+    () => makeAtmosphereMaterial(color, intensity),
+    [color, intensity]
+  );
+  return (
+    <mesh scale={1.14}>
+      <sphereGeometry args={[radius, 48, 48]} />
+      <primitive object={material} attach="material" />
+    </mesh>
+  );
+}
+
 function Planet({ def }: { def: PlanetDef }) {
   const map = useTexture(tex(def.map));
   const cloudMap = useTexture(tex(def.clouds ? "earth_clouds.jpg" : def.map));
@@ -107,9 +176,23 @@ function Planet({ def }: { def: PlanetDef }) {
   return (
     <group position={def.position} rotation={[def.tilt ?? 0, 0, 0]}>
       <mesh ref={bodyRef}>
-        <sphereGeometry args={[def.radius, 64, 64]} />
-        <meshStandardMaterial map={map} roughness={1} metalness={0} />
+        <sphereGeometry args={[def.radius, 96, 96]} />
+        <meshStandardMaterial
+          map={map}
+          bumpMap={def.bump ? map : undefined}
+          bumpScale={def.bump ?? 0}
+          roughness={1}
+          metalness={0}
+        />
       </mesh>
+
+      {def.atmosphere && (
+        <Atmosphere
+          radius={def.radius}
+          color={def.atmosphere.color}
+          intensity={def.atmosphere.intensity}
+        />
+      )}
 
       {def.clouds && (
         <mesh ref={cloudRef} scale={1.02}>
@@ -269,11 +352,13 @@ function Rig({ active, endZ }: { active: boolean; endZ: number }) {
     const baseZ = THREE.MathUtils.lerp(CAM_START, endZ, offset);
     target.set(
       Math.sin(offset * Math.PI * 3) * 2.4 + Math.sin(t * 0.15) * 0.5,
-      Math.cos(offset * Math.PI * 2) * 1.3,
+      Math.cos(offset * Math.PI * 2) * 1.3 + Math.sin(t * 0.4) * 0.25,
       baseZ + warpPull
     );
     const damp = e < 1.8 ? 6 : 3.2;
     camera.position.lerp(target, 1 - Math.exp(-damp * dt));
+    // Gentle roll so the camera feels like it's drifting, not on rails.
+    camera.up.set(Math.sin(t * 0.09) * 0.05, 1, 0);
     camera.lookAt(camera.position.x * 0.4, camera.position.y * 0.4, camera.position.z - 12);
   });
 
@@ -300,8 +385,63 @@ function MovingStars() {
   });
   return (
     <group ref={ref}>
-      <Stars radius={260} depth={120} count={9000} factor={4.5} saturation={0} fade speed={0.6} />
+      <Stars radius={240} depth={120} count={6000} factor={4} saturation={0} fade speed={0.5} />
     </group>
+  );
+}
+
+// Real Milky Way panorama wrapped around the whole scene as deep-space sky.
+function MilkyWay() {
+  const map = useTexture(tex("milkyway.jpg"));
+  map.colorSpace = THREE.SRGBColorSpace;
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame((_, dt) => {
+    if (ref.current) ref.current.rotation.y += dt * 0.0015;
+  });
+  return (
+    <mesh ref={ref} scale={[-1, 1, 1]}>
+      <sphereGeometry args={[420, 64, 64]} />
+      <meshBasicMaterial
+        map={map}
+        side={THREE.BackSide}
+        color="#7c84a0"
+        toneMapped={false}
+        depthWrite={false}
+        fog={false}
+      />
+    </mesh>
+  );
+}
+
+// Faint particles spread along the route that stream past for a floating feel.
+function SpaceDust() {
+  const ref = useRef<THREE.Points>(null);
+  const geometry = useMemo(() => {
+    const count = 1400;
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (Math.random() * 2 - 1) * 44;
+      positions[i * 3 + 1] = (Math.random() * 2 - 1) * 32;
+      positions[i * 3 + 2] = 30 - Math.random() * 180;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    return g;
+  }, []);
+  useFrame((_, dt) => {
+    if (ref.current) ref.current.rotation.z += dt * 0.012;
+  });
+  return (
+    <points ref={ref} geometry={geometry}>
+      <pointsMaterial
+        size={0.07}
+        color="#aebbd6"
+        transparent
+        opacity={0.5}
+        sizeAttenuation
+        depthWrite={false}
+      />
+    </points>
   );
 }
 
@@ -338,10 +478,12 @@ function Scene({
   return (
     <>
       <color attach="background" args={["#04050b"]} />
-      <fog attach="fog" args={["#04050b", 60, 200]} />
+      <fog attach="fog" args={["#04050b", 90, 260]} />
       <ResponsiveCamera />
-      <ambientLight intensity={0.12} />
+      <ambientLight intensity={0.14} />
+      <MilkyWay />
       <MovingStars />
+      <SpaceDust />
       <Sun />
       {PLANETS.map((p) => (
         <Planet key={p.name} def={p} />
