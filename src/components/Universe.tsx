@@ -193,7 +193,7 @@ function Planet({ def }: { def: PlanetDef }) {
   return (
     <group ref={groupRef} position={def.position} rotation={[def.tilt ?? 0, 0, 0]}>
       <mesh ref={bodyRef}>
-        <sphereGeometry args={[def.radius, 96, 96]} />
+        <sphereGeometry args={[def.radius, 64, 64]} />
         <meshStandardMaterial
           map={map}
           bumpMap={def.bump ? map : undefined}
@@ -243,24 +243,118 @@ function MoonMaterial() {
   return <meshStandardMaterial map={map} roughness={1} metalness={0} />;
 }
 
+// Flares / prominences erupting from the sun's surface.
+function SolarProminences({ radius, count = 16 }: { radius: number; count?: number }) {
+  const items = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < count; i++) {
+      const y = 1 - (i / (count - 1)) * 2;
+      const r = Math.sqrt(Math.max(0, 1 - y * y));
+      const theta = i * 2.399963; // golden angle → even spread
+      const dir = new THREE.Vector3(Math.cos(theta) * r, y, Math.sin(theta) * r).normalize();
+      const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      arr.push({
+        position: dir.clone().multiplyScalar(radius * 0.98).toArray() as [number, number, number],
+        quaternion: quat,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.5 + Math.random() * 1.4,
+        len: 2.4 + Math.random() * 3.4
+      });
+    }
+    return arr;
+  }, [count, radius]);
+
+  const groups = useRef<THREE.Group[]>([]);
+  const mats = useRef<THREE.MeshBasicMaterial[]>([]);
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    items.forEach((it, i) => {
+      const g = groups.current[i];
+      const m = mats.current[i];
+      const pulse = 0.5 + 0.5 * Math.sin(t * it.speed + it.phase);
+      if (g) g.scale.y = 0.35 + 0.85 * pulse;
+      if (m) m.opacity = 0.2 + 0.6 * pulse;
+    });
+  });
+
+  return (
+    <>
+      {items.map((it, i) => (
+        <group
+          key={i}
+          position={it.position}
+          quaternion={it.quaternion}
+          ref={(el) => {
+            if (el) groups.current[i] = el;
+          }}
+        >
+          <mesh position={[0, it.len / 2, 0]}>
+            <coneGeometry args={[0.6, it.len, 14, 1, true]} />
+            <meshBasicMaterial
+              ref={(el) => {
+                if (el) mats.current[i] = el as THREE.MeshBasicMaterial;
+              }}
+              color="#ff7b1e"
+              transparent
+              opacity={0.5}
+              side={THREE.DoubleSide}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
 function Sun() {
   const map = useSpaceTexture("sun.jpg");
   const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, dt) => {
-    if (ref.current) ref.current.rotation.y += 0.03 * dt;
+  const coronaRef = useRef<THREE.Mesh>(null);
+  useFrame((state, dt) => {
+    if (ref.current) ref.current.rotation.y += 0.04 * dt;
+    if (coronaRef.current) {
+      const p = 1 + Math.sin(state.clock.elapsedTime * 0.8) * 0.03;
+      coronaRef.current.scale.setScalar(1.16 * p);
+    }
   });
   return (
     <group position={SUN_POS}>
+      {/* blazing core */}
       <mesh ref={ref}>
-        <sphereGeometry args={[6, 64, 64]} />
-        <meshBasicMaterial map={map} color="#fff2cc" toneMapped={false} />
+        <sphereGeometry args={[6, 96, 96]} />
+        <meshBasicMaterial map={map} color="#ffd98a" toneMapped={false} />
       </mesh>
-      {/* warm glow shell */}
-      <mesh scale={1.18}>
+      {/* inner corona */}
+      <mesh ref={coronaRef} scale={1.16}>
+        <sphereGeometry args={[6, 48, 48]} />
+        <meshBasicMaterial
+          color="#ffae3c"
+          transparent
+          opacity={0.32}
+          side={THREE.BackSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* outer glow halo */}
+      <mesh scale={1.9}>
         <sphereGeometry args={[6, 32, 32]} />
-        <meshBasicMaterial color="#ffcf6a" transparent opacity={0.18} side={THREE.BackSide} />
+        <meshBasicMaterial
+          color="#ff8a1e"
+          transparent
+          opacity={0.1}
+          side={THREE.BackSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+        />
       </mesh>
-      <pointLight intensity={3.2} distance={400} decay={0.4} color="#fff4dd" />
+      <SolarProminences radius={6} />
+      <pointLight intensity={3.4} distance={420} decay={0.35} color="#fff4dd" />
     </group>
   );
 }
@@ -368,15 +462,16 @@ function Rig({ active, endZ }: { active: boolean; endZ: number }) {
     const offset = scroll.offset; // 0..1
     const baseZ = THREE.MathUtils.lerp(CAM_START, endZ, offset);
     target.set(
-      Math.sin(offset * Math.PI * 3) * 2.4 + Math.sin(t * 0.15) * 0.5,
-      Math.cos(offset * Math.PI * 2) * 1.3 + Math.sin(t * 0.4) * 0.25,
+      Math.sin(offset * Math.PI * 1.6) * 1.8 + Math.sin(t * 0.12) * 0.35,
+      Math.cos(offset * Math.PI * 1.3) * 1.0 + Math.sin(t * 0.3) * 0.18,
       baseZ + warpPull
     );
-    const damp = e < 1.8 ? 6 : 3.2;
+    // Smooth, frame-rate-independent follow with a gentle warp-in ease.
+    const damp = e < 1.6 ? 5 : 4.2;
     camera.position.lerp(target, 1 - Math.exp(-damp * dt));
-    // Gentle roll so the camera feels like it's drifting, not on rails.
-    camera.up.set(Math.sin(t * 0.09) * 0.05, 1, 0);
-    camera.lookAt(camera.position.x * 0.4, camera.position.y * 0.4, camera.position.z - 12);
+    // Very subtle roll so it drifts rather than runs on rails.
+    camera.up.set(Math.sin(t * 0.07) * 0.03, 1, 0);
+    camera.lookAt(camera.position.x * 0.45, camera.position.y * 0.45, camera.position.z - 12);
   });
 
   return null;
@@ -402,7 +497,7 @@ function MovingStars() {
   });
   return (
     <group ref={ref}>
-      <Stars radius={240} depth={120} count={6000} factor={4} saturation={0} fade speed={0.5} />
+      <Stars radius={240} depth={120} count={4500} factor={4} saturation={0} fade speed={0.4} />
     </group>
   );
 }
@@ -500,7 +595,29 @@ function ShootingStars({ count = 6 }: { count?: number }) {
   );
 }
 
-// A simple but recognizable International Space Station, lit by the sun.
+// Reusable solar-array wing (deep-blue cells on a thin frame).
+function SolarWing({
+  position,
+  size = [2.6, 1.0]
+}: {
+  position: [number, number, number];
+  size?: [number, number];
+}) {
+  return (
+    <mesh position={position}>
+      <boxGeometry args={[size[0], 0.03, size[1]]} />
+      <meshStandardMaterial
+        color="#16224d"
+        emissive="#0c1740"
+        emissiveIntensity={0.55}
+        metalness={0.5}
+        roughness={0.45}
+      />
+    </mesh>
+  );
+}
+
+// A detailed International Space Station, lit by the sun.
 function SpaceStation({
   position,
   scale = 1
@@ -511,47 +628,90 @@ function SpaceStation({
   const ref = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     if (ref.current) {
-      ref.current.rotation.y += dt * 0.12;
-      ref.current.rotation.z += dt * 0.03;
+      ref.current.rotation.y += dt * 0.1;
+      ref.current.rotation.z += dt * 0.02;
     }
   });
-  const panel = (x: number) => (
-    <group position={[x, 0, 0]}>
+  return (
+    <group ref={ref} position={position} scale={scale} rotation={[0.32, 0.5, 0.14]}>
+      {/* main truss */}
       <mesh>
-        <boxGeometry args={[2.4, 0.04, 1.1]} />
-        <meshStandardMaterial color="#1c2a52" emissive="#0a1430" emissiveIntensity={0.5} metalness={0.3} roughness={0.6} />
+        <boxGeometry args={[7, 0.18, 0.18]} />
+        <meshStandardMaterial color="#b9bec8" metalness={0.75} roughness={0.4} />
+      </mesh>
+      {/* gold-foil core modules in a cross */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.34, 0.34, 2.6, 20]} />
+        <meshStandardMaterial color="#c9a24c" metalness={0.85} roughness={0.32} />
+      </mesh>
+      <mesh rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.28, 0.28, 2.0, 20]} />
+        <meshStandardMaterial color="#d7b257" metalness={0.85} roughness={0.32} />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[0.42, 20, 20]} />
+        <meshStandardMaterial color="#cfd3da" metalness={0.6} roughness={0.4} />
+      </mesh>
+      {/* white radiator panels */}
+      <mesh position={[0, 0.05, 0.95]} rotation={[0.2, 0, 0]}>
+        <boxGeometry args={[1.5, 0.02, 0.9]} />
+        <meshStandardMaterial color="#eef0f4" metalness={0.2} roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 0.05, -0.95]} rotation={[-0.2, 0, 0]}>
+        <boxGeometry args={[1.5, 0.02, 0.9]} />
+        <meshStandardMaterial color="#eef0f4" metalness={0.2} roughness={0.7} />
+      </mesh>
+      {/* solar arrays at both ends of the truss */}
+      <SolarWing position={[3.0, 0, 1.25]} />
+      <SolarWing position={[3.0, 0, -1.25]} />
+      <SolarWing position={[-3.0, 0, 1.25]} />
+      <SolarWing position={[-3.0, 0, -1.25]} />
+      {/* antenna dish */}
+      <mesh position={[0, 0.7, 0.5]} rotation={[Math.PI / 2.4, 0, 0]}>
+        <sphereGeometry args={[0.36, 18, 14, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#dfe2e7" metalness={0.5} roughness={0.5} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
+}
+
+// A small detailed satellite with gold body, solar wings and a dish.
+function Satellite({
+  position,
+  scale = 1,
+  spin = 0.3
+}: {
+  position: [number, number, number];
+  scale?: number;
+  spin?: number;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, dt) => {
+    if (ref.current) {
+      ref.current.rotation.y += dt * spin;
+      ref.current.rotation.x += dt * spin * 0.35;
+    }
+  });
   return (
-    <group ref={ref} position={position} scale={scale} rotation={[0.3, 0.5, 0.2]}>
-      {/* main truss */}
+    <group ref={ref} position={position} scale={scale} rotation={[0.4, 0.6, 0.2]}>
+      {/* gold-foil body */}
       <mesh>
-        <boxGeometry args={[6.2, 0.16, 0.16]} />
-        <meshStandardMaterial color="#b9bec8" metalness={0.7} roughness={0.4} />
+        <boxGeometry args={[0.7, 0.7, 1.0]} />
+        <meshStandardMaterial color="#c8a24a" metalness={0.88} roughness={0.28} />
       </mesh>
-      {/* central modules */}
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.32, 0.32, 2.4, 16]} />
-        <meshStandardMaterial color="#d6d8de" metalness={0.5} roughness={0.5} />
+      {/* connecting boom */}
+      <mesh rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.03, 0.03, 2.1, 8]} />
+        <meshStandardMaterial color="#888d98" metalness={0.6} roughness={0.4} />
       </mesh>
-      <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.26, 0.26, 1.8, 16]} />
-        <meshStandardMaterial color="#c8ccd4" metalness={0.5} roughness={0.5} />
+      {/* solar wings */}
+      <SolarWing position={[1.15, 0, 0]} size={[1.4, 0.7]} />
+      <SolarWing position={[-1.15, 0, 0]} size={[1.4, 0.7]} />
+      {/* dish antenna */}
+      <mesh position={[0, 0.5, 0.1]} rotation={[Math.PI / 2, 0, 0]}>
+        <sphereGeometry args={[0.3, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#e3e6ea" metalness={0.45} roughness={0.5} side={THREE.DoubleSide} />
       </mesh>
-      {/* four solar arrays */}
-      {panel(2.4)}
-      {panel(-2.4)}
-      <group position={[0, 0, 0]}>
-        <mesh position={[1.5, 0, 1.0]}>
-          <boxGeometry args={[2.0, 0.04, 0.9]} />
-          <meshStandardMaterial color="#22326a" emissive="#0a1430" emissiveIntensity={0.5} metalness={0.3} roughness={0.6} />
-        </mesh>
-        <mesh position={[-1.5, 0, 1.0]}>
-          <boxGeometry args={[2.0, 0.04, 0.9]} />
-          <meshStandardMaterial color="#22326a" emissive="#0a1430" emissiveIntensity={0.5} metalness={0.3} roughness={0.6} />
-        </mesh>
-      </group>
     </group>
   );
 }
@@ -602,7 +762,7 @@ function SpaceShuttle({
 function SpaceDust() {
   const ref = useRef<THREE.Points>(null);
   const geometry = useMemo(() => {
-    const count = 1400;
+    const count = 1000;
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       positions[i * 3] = (Math.random() * 2 - 1) * 44;
@@ -676,6 +836,9 @@ function Scene({
       ))}
       <SpaceStation position={[5, 1.4, -30]} scale={0.95} />
       <SpaceShuttle position={[-4.5, -0.6, -44]} scale={0.85} />
+      <Satellite position={[-7, 2.6, -15]} scale={0.7} spin={0.4} />
+      <Satellite position={[10.5, -2.2, -58]} scale={0.95} spin={0.22} />
+      <Satellite position={[-8.5, 3, -98]} scale={0.8} spin={0.32} />
       {panels.map((panel) => (
         <PhotoPanel key={panel.photo.id} panel={panel} onSelect={onSelect} />
       ))}
@@ -698,12 +861,12 @@ export default function Universe({
   return (
     <div className="universe">
       <Canvas
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         camera={{ position: [0, 1.4, CAM_START], fov: 58, near: 0.1, far: 600 }}
       >
         <Suspense fallback={null}>
-          <ScrollControls pages={pages} damping={0.28} enabled={active}>
+          <ScrollControls pages={pages} damping={0.32} enabled={active}>
             <Scene photos={photos} active={active} onSelect={onSelect} />
           </ScrollControls>
         </Suspense>
