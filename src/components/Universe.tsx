@@ -6,13 +6,22 @@ import {
   Stars,
   Image,
   Text,
-  useTexture
+  useTexture,
+  useCubeTexture
 } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { Photo } from "../types";
 
 const tex = (name: string) => `${import.meta.env.BASE_URL}textures/${name}`;
+
+// Load a texture and configure it for realistic colour + sharpness.
+function useSpaceTexture(name: string): THREE.Texture {
+  const texture = useTexture(tex(name));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
 
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
@@ -78,7 +87,7 @@ const PLANETS: PlanetDef[] = [
 const NEPTUNE_Z = -122;
 
 function SaturnRing({ inner, outer, map }: { inner: number; outer: number; map: string }) {
-  const ringMap = useTexture(tex(map));
+  const ringMap = useSpaceTexture(map);
   const geometry = useMemo(() => {
     const g = new THREE.RingGeometry(inner, outer, 128);
     const pos = g.attributes.position;
@@ -161,20 +170,28 @@ function Atmosphere({
 }
 
 function Planet({ def }: { def: PlanetDef }) {
-  const map = useTexture(tex(def.map));
-  const cloudMap = useTexture(tex(def.clouds ? "earth_clouds.jpg" : def.map));
+  const map = useSpaceTexture(def.map);
+  const cloudMap = useSpaceTexture(def.clouds ? "earth_clouds.jpg" : def.map);
+  const groupRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Mesh>(null);
   const cloudRef = useRef<THREE.Mesh>(null);
   const moonPivot = useRef<THREE.Group>(null);
+  const phase = useMemo(() => Math.random() * Math.PI * 2, []);
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     if (bodyRef.current) bodyRef.current.rotation.y += def.spin * dt;
     if (cloudRef.current) cloudRef.current.rotation.y += def.spin * 1.35 * dt;
     if (moonPivot.current) moonPivot.current.rotation.y += (def.moon?.speed ?? 0) * dt;
+    if (groupRef.current) {
+      // gentle drift so the worlds feel alive, not pinned in place
+      const t = state.clock.elapsedTime;
+      groupRef.current.position.x = def.position[0] + Math.sin(t * 0.12 + phase) * 0.5;
+      groupRef.current.position.y = def.position[1] + Math.cos(t * 0.1 + phase) * 0.4;
+    }
   });
 
   return (
-    <group position={def.position} rotation={[def.tilt ?? 0, 0, 0]}>
+    <group ref={groupRef} position={def.position} rotation={[def.tilt ?? 0, 0, 0]}>
       <mesh ref={bodyRef}>
         <sphereGeometry args={[def.radius, 96, 96]} />
         <meshStandardMaterial
@@ -222,12 +239,12 @@ function Planet({ def }: { def: PlanetDef }) {
 }
 
 function MoonMaterial() {
-  const map = useTexture(tex("moon.jpg"));
+  const map = useSpaceTexture("moon.jpg");
   return <meshStandardMaterial map={map} roughness={1} metalness={0} />;
 }
 
 function Sun() {
-  const map = useTexture(tex("sun.jpg"));
+  const map = useSpaceTexture("sun.jpg");
   const ref = useRef<THREE.Mesh>(null);
   useFrame((_, dt) => {
     if (ref.current) ref.current.rotation.y += 0.03 * dt;
@@ -390,26 +407,194 @@ function MovingStars() {
   );
 }
 
-// Real Milky Way panorama wrapped around the whole scene as deep-space sky.
-function MilkyWay() {
-  const map = useTexture(tex("milkyway.jpg"));
-  map.colorSpace = THREE.SRGBColorSpace;
-  const ref = useRef<THREE.Mesh>(null);
+// A real dark Milky Way cube map as the deep-space sky (stars + galactic band).
+function SpaceBackground() {
+  const { scene } = useThree();
+  const cube = useCubeTexture(
+    ["px.jpg", "nx.jpg", "py.jpg", "ny.jpg", "pz.jpg", "nz.jpg"],
+    { path: `${import.meta.env.BASE_URL}textures/skybox/` }
+  );
+  useEffect(() => {
+    cube.colorSpace = THREE.SRGBColorSpace;
+    const prev = scene.background;
+    scene.background = cube;
+    return () => {
+      scene.background = prev;
+    };
+  }, [cube, scene]);
+  return null;
+}
+
+// Meteors that streak across and fade, respawning ahead of the camera.
+function ShootingStars({ count = 6 }: { count?: number }) {
+  const { camera } = useThree();
+  const meshes = useRef<THREE.Mesh[]>([]);
+  const meteors = useRef(
+    Array.from({ length: count }, () => ({
+      pos: new THREE.Vector3(),
+      vel: new THREE.Vector3(),
+      life: 0,
+      max: 1,
+      delay: Math.random() * 7
+    }))
+  );
+
+  const respawn = (m: (typeof meteors.current)[number]) => {
+    const cam = camera.position;
+    m.pos.set(
+      cam.x + (Math.random() * 2 - 1) * 55,
+      cam.y + 18 + Math.random() * 22,
+      cam.z - 25 - Math.random() * 70
+    );
+    m.vel.set(
+      -(14 + Math.random() * 16) * (Math.random() > 0.5 ? 1 : -1),
+      -(10 + Math.random() * 12),
+      0
+    );
+    m.life = 0;
+    m.max = 0.8 + Math.random() * 0.9;
+    m.delay = Math.random() * 5;
+  };
+
   useFrame((_, dt) => {
-    if (ref.current) ref.current.rotation.y += dt * 0.0015;
+    meteors.current.forEach((m, i) => {
+      const mesh = meshes.current[i];
+      if (!mesh) return;
+      // Lazily initialise each meteor relative to the camera.
+      if (m.vel.lengthSq() === 0) {
+        respawn(m);
+        mesh.visible = false;
+        return;
+      }
+      if (m.delay > 0) {
+        m.delay -= dt;
+        mesh.visible = false;
+        return;
+      }
+      mesh.visible = true;
+      m.life += dt;
+      m.pos.addScaledVector(m.vel, dt);
+      mesh.position.copy(m.pos);
+      mesh.lookAt(m.pos.clone().add(m.vel));
+      const k = Math.max(0, 1 - m.life / m.max);
+      (mesh.material as THREE.MeshBasicMaterial).opacity = k;
+      if (m.life >= m.max) respawn(m);
+    });
+  });
+
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <mesh
+          key={i}
+          visible={false}
+          ref={(el) => {
+            if (el) meshes.current[i] = el;
+          }}
+        >
+          <boxGeometry args={[0.04, 0.04, 3.2]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={1} toneMapped={false} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+// A simple but recognizable International Space Station, lit by the sun.
+function SpaceStation({
+  position,
+  scale = 1
+}: {
+  position: [number, number, number];
+  scale?: number;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, dt) => {
+    if (ref.current) {
+      ref.current.rotation.y += dt * 0.12;
+      ref.current.rotation.z += dt * 0.03;
+    }
+  });
+  const panel = (x: number) => (
+    <group position={[x, 0, 0]}>
+      <mesh>
+        <boxGeometry args={[2.4, 0.04, 1.1]} />
+        <meshStandardMaterial color="#1c2a52" emissive="#0a1430" emissiveIntensity={0.5} metalness={0.3} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+  return (
+    <group ref={ref} position={position} scale={scale} rotation={[0.3, 0.5, 0.2]}>
+      {/* main truss */}
+      <mesh>
+        <boxGeometry args={[6.2, 0.16, 0.16]} />
+        <meshStandardMaterial color="#b9bec8" metalness={0.7} roughness={0.4} />
+      </mesh>
+      {/* central modules */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.32, 0.32, 2.4, 16]} />
+        <meshStandardMaterial color="#d6d8de" metalness={0.5} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.26, 0.26, 1.8, 16]} />
+        <meshStandardMaterial color="#c8ccd4" metalness={0.5} roughness={0.5} />
+      </mesh>
+      {/* four solar arrays */}
+      {panel(2.4)}
+      {panel(-2.4)}
+      <group position={[0, 0, 0]}>
+        <mesh position={[1.5, 0, 1.0]}>
+          <boxGeometry args={[2.0, 0.04, 0.9]} />
+          <meshStandardMaterial color="#22326a" emissive="#0a1430" emissiveIntensity={0.5} metalness={0.3} roughness={0.6} />
+        </mesh>
+        <mesh position={[-1.5, 0, 1.0]}>
+          <boxGeometry args={[2.0, 0.04, 0.9]} />
+          <meshStandardMaterial color="#22326a" emissive="#0a1430" emissiveIntensity={0.5} metalness={0.3} roughness={0.6} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+// A stylized Space Shuttle orbiter drifting through the scene.
+function SpaceShuttle({
+  position,
+  scale = 1
+}: {
+  position: [number, number, number];
+  scale?: number;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame((state, dt) => {
+    if (ref.current) {
+      ref.current.rotation.y += dt * 0.06;
+      ref.current.position.y =
+        position[1] + Math.sin(state.clock.elapsedTime * 0.4) * 0.4;
+    }
   });
   return (
-    <mesh ref={ref} scale={[-1, 1, 1]}>
-      <sphereGeometry args={[420, 64, 64]} />
-      <meshBasicMaterial
-        map={map}
-        side={THREE.BackSide}
-        color="#7c84a0"
-        toneMapped={false}
-        depthWrite={false}
-        fog={false}
-      />
-    </mesh>
+    <group ref={ref} position={position} scale={scale} rotation={[0.2, -0.6, 0.1]}>
+      {/* fuselage */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.42, 0.5, 3.4, 20]} />
+        <meshStandardMaterial color="#eef1f6" metalness={0.2} roughness={0.6} />
+      </mesh>
+      {/* nose cone */}
+      <mesh position={[0, 0, 1.95]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.42, 0.9, 20]} />
+        <meshStandardMaterial color="#2b2f38" metalness={0.3} roughness={0.5} />
+      </mesh>
+      {/* delta wings */}
+      <mesh position={[0, -0.18, -0.6]}>
+        <boxGeometry args={[3.4, 0.08, 1.7]} />
+        <meshStandardMaterial color="#e7eaf0" metalness={0.2} roughness={0.6} />
+      </mesh>
+      {/* tail fin */}
+      <mesh position={[0, 0.5, -1.4]}>
+        <boxGeometry args={[0.08, 1.0, 0.8]} />
+        <meshStandardMaterial color="#e7eaf0" metalness={0.2} roughness={0.6} />
+      </mesh>
+    </group>
   );
 }
 
@@ -477,17 +662,20 @@ function Scene({
 
   return (
     <>
-      <color attach="background" args={["#04050b"]} />
-      <fog attach="fog" args={["#04050b", 90, 260]} />
+      <color attach="background" args={["#03040a"]} />
+      <fog attach="fog" args={["#03040a", 110, 300]} />
       <ResponsiveCamera />
-      <ambientLight intensity={0.14} />
-      <MilkyWay />
+      <SpaceBackground />
+      <ambientLight intensity={0.16} />
       <MovingStars />
       <SpaceDust />
+      <ShootingStars count={6} />
       <Sun />
       {PLANETS.map((p) => (
         <Planet key={p.name} def={p} />
       ))}
+      <SpaceStation position={[5, 1.4, -30]} scale={0.95} />
+      <SpaceShuttle position={[-4.5, -0.6, -44]} scale={0.85} />
       {panels.map((panel) => (
         <PhotoPanel key={panel.photo.id} panel={panel} onSelect={onSelect} />
       ))}
