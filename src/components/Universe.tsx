@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   ScrollControls,
@@ -167,6 +167,22 @@ function Sun() {
 
 /* ---------- Photos floating in space ---------- */
 
+function roundedRectGeometry(w: number, h: number, r: number) {
+  const x = -w / 2;
+  const y = -h / 2;
+  const s = new THREE.Shape();
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return new THREE.ShapeGeometry(s, 24);
+}
+
 interface PanelDef {
   photo: Photo;
   position: [number, number, number];
@@ -178,6 +194,8 @@ function PhotoPanel({ panel, onSelect }: { panel: PanelDef; onSelect: (i: number
   const { camera } = useThree();
   const w = 5.4;
   const h = 3.6;
+  const backing = useMemo(() => roundedRectGeometry(w + 0.34, h + 0.34, 0.42), []);
+  const border = useMemo(() => roundedRectGeometry(w + 0.18, h + 0.18, 0.36), []);
 
   useFrame(() => {
     // Always face the camera so the photo reads head-on as you pass.
@@ -186,17 +204,16 @@ function PhotoPanel({ panel, onSelect }: { panel: PanelDef; onSelect: (i: number
 
   return (
     <group ref={groupRef} position={panel.position}>
-      <mesh position={[0, 0, -0.06]}>
-        <planeGeometry args={[w + 0.34, h + 0.34]} />
+      <mesh geometry={backing} position={[0, 0, -0.06]}>
         <meshStandardMaterial color="#080a14" roughness={0.9} metalness={0.1} />
       </mesh>
-      <mesh position={[0, 0, -0.04]}>
-        <planeGeometry args={[w + 0.2, h + 0.2]} />
+      <mesh geometry={border} position={[0, 0, -0.04]}>
         <meshBasicMaterial color="#8aa0ff" toneMapped={false} />
       </mesh>
       <Image
         url={panel.photo.url}
         scale={[w, h]}
+        radius={0.28}
         transparent
         onClick={(e) => {
           e.stopPropagation();
@@ -263,6 +280,19 @@ function Rig({ active, endZ }: { active: boolean; endZ: number }) {
   return null;
 }
 
+function ResponsiveCamera() {
+  const { camera, size } = useThree();
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera;
+    const aspect = size.width / size.height;
+    // Portrait phones have a narrow horizontal FOV; widen it so the planets
+    // and photo panels off to the sides stay on screen.
+    cam.fov = aspect < 1 ? Math.min(96, 58 / Math.max(aspect, 0.42)) : 58;
+    cam.updateProjectionMatrix();
+  }, [camera, size.width, size.height]);
+  return null;
+}
+
 function MovingStars() {
   const ref = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
@@ -309,6 +339,7 @@ function Scene({
     <>
       <color attach="background" args={["#04050b"]} />
       <fog attach="fog" args={["#04050b", 60, 200]} />
+      <ResponsiveCamera />
       <ambientLight intensity={0.12} />
       <MovingStars />
       <Sun />

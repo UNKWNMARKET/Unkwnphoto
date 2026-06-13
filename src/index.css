@@ -22,12 +22,14 @@ body,
 }
 
 body {
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 .app {
   position: relative;
-  min-height: 100vh;
+  height: 100%;
 }
 
 /* ---------- 3D universe ---------- */
@@ -36,6 +38,7 @@ body {
   inset: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   z-index: 0;
 }
 
@@ -598,6 +601,58 @@ body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 600px) {
+  .intro-title {
+    font-size: clamp(1.3rem, 7.4vw, 2.1rem);
+    letter-spacing: 0.16em;
+    text-indent: 0.16em;
+    white-space: nowrap;
+  }
+
+  .intro-cta {
+    font-size: 0.66rem;
+    letter-spacing: 0.36em;
+    text-indent: 0.36em;
+  }
+
+  .hud-top {
+    padding: 0 1rem;
+  }
+
+  .hud-title {
+    font-size: 0.82rem;
+    letter-spacing: 0.24em;
+    text-indent: 0.24em;
+  }
+
+  .hud .manage-link {
+    padding: 0.45rem 0.8rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+  }
+
+  .hud-hint {
+    font-size: 0.58rem;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
+  }
+
+  .lightbox-nav {
+    width: 42px;
+    height: 42px;
+    font-size: 1.6rem;
+  }
+
+  .lightbox-prev {
+    left: 0.6rem;
+  }
+
+  .lightbox-next {
+    right: 0.6rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
