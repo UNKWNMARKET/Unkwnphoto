@@ -17,10 +17,20 @@ export default function App() {
     setLoading(true);
     try {
       const res = await fetch("/api/photos");
+      if (!res.ok) throw new Error("API unavailable");
       const data = (await res.json()) as Photo[];
       setPhotos(data);
     } catch {
-      setPhotos([]);
+      // No back end (e.g. the static GitHub Pages preview) — fall back to the
+      // bundled demo photos so the gallery still has something to show.
+      try {
+        const base = import.meta.env.BASE_URL;
+        const res = await fetch(`${base}demo-photos.json`);
+        const data = (await res.json()) as Photo[];
+        setPhotos(data.map((p) => ({ ...p, url: `${base}${p.url}` })));
+      } catch {
+        setPhotos([]);
+      }
     } finally {
       setLoading(false);
     }

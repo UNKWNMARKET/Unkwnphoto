@@ -1,0 +1,23 @@
+[
+  {
+    "id": "sample-1",
+    "title": "Event Horizon",
+    "description": "Long exposure over still water — sample image, replace from the Manage page.",
+    "url": "samples/nebula.svg",
+    "createdAt": "2026-01-01T00:00:03.000Z"
+  },
+  {
+    "id": "sample-2",
+    "title": "Quiet Orbit",
+    "description": "Cool tones and negative space — sample image, replace from the Manage page.",
+    "url": "samples/aurora.svg",
+    "createdAt": "2026-01-01T00:00:02.000Z"
+  },
+  {
+    "id": "sample-3",
+    "title": "First Light",
+    "description": "Warm gradient at dawn — sample image, replace from the Manage page.",
+    "url": "samples/ember.svg",
+    "createdAt": "2026-01-01T00:00:01.000Z"
+  }
+]
