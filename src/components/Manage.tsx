@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 import type { Photo } from "../types";
 
 interface ManageProps {
@@ -22,18 +23,32 @@ export default function Manage({ photos, onClose, onChanged }: ManageProps) {
       setError("Please choose an image to upload.");
       return;
     }
-    const form = new FormData();
-    form.append("photo", file);
-    form.append("title", title);
-    form.append("description", description);
-
     setBusy(true);
     try {
-      const res = await fetch("/api/photos", { method: "POST", body: form });
+      // 1. Send the image straight to Vercel Blob storage.
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const blob = await upload(`photos/${Date.now()}-${safeName}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        contentType: file.type || undefined
+      });
+
+      // 2. Record its title/description in the photo index.
+      const res = await fetch("/api/photos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          url: blob.url,
+          pathname: blob.pathname
+        })
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Upload failed.");
+        throw new Error(body.error ?? "Could not save the photo.");
       }
+
       setTitle("");
       setDescription("");
       setFile(null);
