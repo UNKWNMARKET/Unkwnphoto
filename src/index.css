@@ -1,10 +1,10 @@
 :root {
-  --ink: #f4f6ff;
-  --muted: rgba(220, 226, 255, 0.66);
-  --glass: rgba(12, 14, 30, 0.46);
-  --glass-strong: rgba(8, 10, 24, 0.82);
-  --border: rgba(150, 170, 255, 0.16);
-  --accent: #8aa2ff;
+  --ink: #eef1fb;
+  --muted: rgba(206, 214, 240, 0.6);
+  --glass: rgba(10, 12, 24, 0.4);
+  --glass-strong: rgba(7, 9, 20, 0.84);
+  --border: rgba(150, 170, 255, 0.14);
+  --accent: #93a8ff;
   font-family: "Inter", "Helvetica Neue", Arial, system-ui, sans-serif;
 }
 
@@ -30,14 +30,68 @@ body {
   min-height: 100vh;
 }
 
-/* ---------- Space background ---------- */
-.space-canvas {
+/* ---------- 3D universe ---------- */
+.universe {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
-  display: block;
   z-index: 0;
+}
+
+.universe canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* ---------- HUD over the scene ---------- */
+.hud {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  animation: fadeIn 1.6s ease 0.6s both;
+}
+
+.hud-top {
+  position: absolute;
+  top: clamp(1.2rem, 3vh, 2.2rem);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 clamp(1.2rem, 4vw, 3rem);
+}
+
+.hud-title {
+  margin: 0;
+  font-size: clamp(1rem, 2.4vw, 1.4rem);
+  font-weight: 300;
+  letter-spacing: 0.36em;
+  text-indent: 0.36em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-shadow: 0 0 24px rgba(138, 162, 255, 0.45);
+}
+
+.hud .manage-link {
+  pointer-events: auto;
+}
+
+.hud-hint {
+  position: absolute;
+  bottom: clamp(1.4rem, 4vh, 2.6rem);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.68rem;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  text-transform: uppercase;
+  color: var(--muted);
+  animation: pulse 3s ease-in-out infinite;
 }
 
 /* ---------- Intro ---------- */
@@ -48,23 +102,49 @@ body {
   display: grid;
   place-items: center;
   border: none;
-  background: #000;
+  padding: 0;
   color: var(--ink);
   cursor: pointer;
-  animation: introBgFade 2.6s ease forwards;
+  /* A soft radial veil so the starfield reads faintly behind the title. */
+  background: radial-gradient(
+    120% 120% at 50% 50%,
+    rgba(2, 3, 9, 0.62) 0%,
+    rgba(2, 3, 9, 0.9) 70%,
+    #02030a 100%
+  );
+  animation: introVeilIn 2.4s ease forwards;
+  transition: background 1.6s ease, opacity 1.2s ease;
 }
 
-@keyframes introBgFade {
+@keyframes introVeilIn {
   0% {
-    background: #000;
+    background: #02030a;
   }
-  100% {
-    background: rgba(0, 0, 0, 0.86);
-  }
+}
+
+/* On enter: lift the veil so the warp is fully visible, then fade out. */
+.intro-leaving {
+  background: radial-gradient(
+    120% 120% at 50% 50%,
+    rgba(2, 3, 9, 0) 0%,
+    rgba(2, 3, 9, 0.1) 60%,
+    rgba(2, 3, 9, 0.35) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
 }
 
 .intro-inner {
   text-align: center;
+  transition: transform 1.8s cubic-bezier(0.4, 0, 0.2, 1),
+    filter 1.4s ease, opacity 1.2s ease;
+}
+
+/* Title rushes toward the viewer as the field warps past. */
+.intro-leaving .intro-inner {
+  transform: scale(2.4);
+  filter: blur(10px);
+  opacity: 0;
 }
 
 .intro-title {
@@ -432,7 +512,7 @@ body {
 
 .manage-submit {
   justify-self: start;
-  background: linear-gradient(120deg, #6d8bff, #8a6dff);
+  background: linear-gradient(120deg, #7d96ff, #5d72e6);
   border: none;
   color: #fff;
   padding: 0.75rem 1.6rem;

@@ -1,13 +1,15 @@
 interface IntroProps {
   onEnter: () => void;
+  leaving: boolean;
 }
 
-export default function Intro({ onEnter }: IntroProps) {
+export default function Intro({ onEnter, leaving }: IntroProps) {
   return (
     <button
       type="button"
-      className="intro"
+      className={`intro${leaving ? " intro-leaving" : ""}`}
       onClick={onEnter}
+      disabled={leaving}
       aria-label="Enter Unkwnphoto"
     >
       <div className="intro-inner">

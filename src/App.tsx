@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import SpaceScene from "./components/SpaceScene";
+import Universe from "./components/Universe";
 import Intro from "./components/Intro";
-import Gallery from "./components/Gallery";
 import Lightbox from "./components/Lightbox";
 import Manage from "./components/Manage";
 import type { Photo } from "./types";
 
+type Phase = "intro" | "warping" | "entered";
+
 export default function App() {
-  const [entered, setEntered] = useState(false);
+  const [phase, setPhase] = useState<Phase>("intro");
+  const entered = phase === "entered";
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [managing, setManaging] = useState(false);
 
   const loadPhotos = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fetch("/api/photos");
       if (!res.ok) throw new Error("API unavailable");
@@ -22,7 +22,7 @@ export default function App() {
       setPhotos(data);
     } catch {
       // No back end (e.g. the static GitHub Pages preview) — fall back to the
-      // bundled demo photos so the gallery still has something to show.
+      // bundled demo photos so the journey still has something to show.
       try {
         const base = import.meta.env.BASE_URL;
         const res = await fetch(`${base}demo-photos.json`);
@@ -31,8 +31,6 @@ export default function App() {
       } catch {
         setPhotos([]);
       }
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -40,20 +38,32 @@ export default function App() {
     loadPhotos();
   }, [loadPhotos]);
 
+  const enter = useCallback(() => {
+    setPhase("warping");
+    window.setTimeout(() => setPhase("entered"), 1900);
+  }, []);
+
   return (
     <div className="app">
-      <SpaceScene />
+      <Universe photos={photos} active={entered} onSelect={setLightboxIndex} />
 
-      {!entered && <Intro onEnter={() => setEntered(true)} />}
+      {phase !== "entered" && (
+        <Intro onEnter={enter} leaving={phase === "warping"} />
+      )}
 
       {entered && (
-        <div className="stage">
-          <Gallery
-            photos={photos}
-            loading={loading}
-            onSelect={setLightboxIndex}
-            onOpenManage={() => setManaging(true)}
-          />
+        <div className="hud">
+          <div className="hud-top">
+            <h1 className="hud-title">Unkwnphoto</h1>
+            <button className="manage-link" onClick={() => setManaging(true)}>
+              Manage photos
+            </button>
+          </div>
+          {photos.length > 0 && (
+            <div className="hud-hint" aria-hidden="true">
+              scroll to travel the system
+            </div>
+          )}
         </div>
       )}
 

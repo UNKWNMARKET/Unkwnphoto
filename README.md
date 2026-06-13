@@ -4,19 +4,20 @@ An immersive photography portfolio for **Unkwnphoto**.
 
 - The site opens on a black screen where the name **Unkwnphoto** fades in with a
   **click to enter** prompt.
-- Entering reveals an animated deep-space scene — drifting planets, twinkling
-  stars, and the occasional shooting star — kept subtle and clean.
-- Your photos appear in a glass gallery over the scene. Each card shows a title
-  and description; clicking a photo opens a full-screen viewer with arrow-key
-  and on-screen navigation.
+- Entering flies you into a real-time 3D solar system (WebGL): a blooming sun,
+  textured and lit planets from Mercury to Neptune — Saturn's rings, Earth's
+  clouds and moon — all rotating against a deep, drifting starfield.
+- Your photos float as framed panels along the journey. **Scroll to travel
+  through the system**, passing each planet and photo; clicking a photo opens a
+  full-screen viewer with arrow-key and on-screen navigation.
 - Photos are managed through a small **back end**: upload images with a title and
   description from the **Manage photos** panel, and they are stored on the server
   and served to the gallery.
 
 ## Tech stack
 
-- **Front end:** React + TypeScript, built with Vite. The space scene is a
-  single HTML canvas animation.
+- **Front end:** React + TypeScript, built with Vite. The solar system is
+  rendered with three.js via react-three-fiber, drei and postprocessing (bloom).
 - **Back end:** Express + TypeScript with `multer` for uploads. Image files are
   saved to `uploads/` and their metadata to `data/photos.json`.
 
@@ -78,11 +79,19 @@ server/index.ts        Express API: list, upload, delete photos
 src/                    React front end
   components/
     Intro.tsx           Black screen + "click to enter"
-    SpaceScene.tsx      Canvas: planets, stars, shooting stars
-    Gallery.tsx         Photo grid
+    Universe.tsx        3D solar system (react-three-fiber) + photo panels
     Lightbox.tsx        Full-screen photo viewer
     Manage.tsx          Upload / delete panel
 data/photos.json        Photo metadata (created at runtime)
 uploads/                Uploaded image files (created at runtime)
 public/samples/         Placeholder images
+public/textures/        Planet & sun textures
+public/fonts/           Space Grotesk (in-scene labels)
 ```
+
+## Credits
+
+- Planet & sun textures: [threex.planets](https://github.com/jeromeetienne/threex.planets)
+  by Jerome Etienne (MIT).
+- In-scene typeface: [Space Grotesk](https://github.com/floriankarsten/space-grotesk)
+  (SIL Open Font License 1.1).
