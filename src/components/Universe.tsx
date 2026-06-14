@@ -15,6 +15,10 @@ import type { Photo } from "../types";
 
 const tex = (name: string) => `${import.meta.env.BASE_URL}textures/${name}`;
 
+// Stable references so the skybox loader never re-suspends on re-render.
+const SKYBOX_FILES = ["px.jpg", "nx.jpg", "py.jpg", "ny.jpg", "pz.jpg", "nz.jpg"];
+const SKYBOX_OPTS = { path: `${import.meta.env.BASE_URL}textures/skybox/` };
+
 // Load a texture and configure it for realistic colour + sharpness.
 function useSpaceTexture(name: string): THREE.Texture {
   const texture = useTexture(tex(name));
@@ -621,10 +625,7 @@ function MovingStars() {
 // A real dark Milky Way cube map as the deep-space sky (stars + galactic band).
 function SpaceBackground() {
   const { scene } = useThree();
-  const cube = useCubeTexture(
-    ["px.jpg", "nx.jpg", "py.jpg", "ny.jpg", "pz.jpg", "nz.jpg"],
-    { path: `${import.meta.env.BASE_URL}textures/skybox/` }
-  );
+  const cube = useCubeTexture(SKYBOX_FILES, SKYBOX_OPTS);
   useEffect(() => {
     cube.colorSpace = THREE.SRGBColorSpace;
     const prev = scene.background;
@@ -938,7 +939,7 @@ function Scene({
 
   return (
     <>
-      <color attach="background" args={["#03040a"]} />
+      {/* Background is the cube-map skybox (set in SpaceBackground). */}
       <fog attach="fog" args={["#03040a", 110, 300]} />
       <ResponsiveCamera />
       <SpaceBackground />
@@ -985,7 +986,7 @@ export default function Universe({
         camera={{ position: [0, 1.4, CAM_START], fov: 58, near: 0.1, far: 600 }}
       >
         <Suspense fallback={null}>
-          <ScrollControls pages={pages} damping={0.32} enabled={active}>
+          <ScrollControls pages={pages} damping={0.32}>
             <Scene photos={photos} active={active} onSelect={onSelect} />
           </ScrollControls>
         </Suspense>
