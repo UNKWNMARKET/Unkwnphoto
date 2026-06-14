@@ -955,9 +955,12 @@ function Scene({
       <Satellite position={[-7, 2.6, -15]} scale={0.7} spin={0.4} />
       <Satellite position={[10.5, -2.2, -58]} scale={0.95} spin={0.22} />
       <Satellite position={[-8.5, 3, -98]} scale={0.8} spin={0.32} />
-      {panels.map((panel) => (
-        <PhotoPanel key={panel.photo.id} panel={panel} onSelect={onSelect} />
-      ))}
+      {/* Isolate photo/text loading so it never blanks the whole scene. */}
+      <Suspense fallback={null}>
+        {panels.map((panel) => (
+          <PhotoPanel key={panel.photo.id} panel={panel} onSelect={onSelect} />
+        ))}
+      </Suspense>
       <Rig active={active} endZ={endZ} />
     </>
   );
