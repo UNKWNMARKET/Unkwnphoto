@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   ScrollControls,
@@ -9,8 +9,7 @@ import {
   useTexture,
   useCubeTexture
 } from "@react-three/drei";
-import { EffectComposer, Bloom, GodRays } from "@react-three/postprocessing";
-import { BlendFunction } from "postprocessing";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { Photo } from "../types";
 
@@ -445,25 +444,25 @@ function Sun({ onReady }: { onReady?: (mesh: THREE.Mesh | null) => void }) {
         <primitive object={material} attach="material" />
       </mesh>
       {/* inner corona — tight orange rim */}
-      <mesh ref={coronaRef} scale={1.1}>
+      <mesh ref={coronaRef} scale={1.12}>
         <sphereGeometry args={[6, 48, 48]} />
         <meshBasicMaterial
-          color="#d4521a"
+          color="#e0631f"
           transparent
-          opacity={0.22}
+          opacity={0.3}
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
           toneMapped={false}
         />
       </mesh>
-      {/* outer glow halo — faint and contained */}
-      <mesh scale={1.45}>
+      {/* outer glow halo — soft and contained */}
+      <mesh scale={1.5}>
         <sphereGeometry args={[6, 32, 32]} />
         <meshBasicMaterial
-          color="#a83610"
+          color="#b03c12"
           transparent
-          opacity={0.07}
+          opacity={0.12}
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
@@ -912,13 +911,11 @@ function SpaceDust() {
 function Scene({
   photos,
   active,
-  onSelect,
-  onSunReady
+  onSelect
 }: {
   photos: Photo[];
   active: boolean;
   onSelect: (i: number) => void;
-  onSunReady: (mesh: THREE.Mesh | null) => void;
 }) {
   const panels = useMemo<PanelDef[]>(() => {
     if (photos.length === 0) return [];
@@ -949,7 +946,7 @@ function Scene({
       <MovingStars />
       <SpaceDust />
       <ShootingStars count={6} />
-      <Sun onReady={onSunReady} />
+      <Sun />
       {PLANETS.map((p) => (
         <Planet key={p.name} def={p} />
       ))}
@@ -976,7 +973,6 @@ export default function Universe({
   onSelect: (i: number) => void;
 }) {
   const pages = Math.max(6, (CAM_START - (NEPTUNE_Z - 14)) / 13);
-  const [sunMesh, setSunMesh] = useState<THREE.Mesh | null>(null);
 
   return (
     <div className="universe">
@@ -987,34 +983,13 @@ export default function Universe({
       >
         <Suspense fallback={null}>
           <ScrollControls pages={pages} damping={0.32} enabled={active}>
-            <Scene
-              photos={photos}
-              active={active}
-              onSelect={onSelect}
-              onSunReady={setSunMesh}
-            />
+            <Scene photos={photos} active={active} onSelect={onSelect} />
           </ScrollControls>
         </Suspense>
         <EffectComposer>
-          {(sunMesh
-            ? [
-                <GodRays
-                  key="godrays"
-                  sun={sunMesh}
-                  blendFunction={BlendFunction.SCREEN}
-                  samples={40}
-                  density={0.86}
-                  decay={0.9}
-                  weight={0.2}
-                  exposure={0.18}
-                  clampMax={0.85}
-                  blur
-                />
-              ]
-            : []) as unknown as JSX.Element}
           <Bloom
-            intensity={0.85}
-            luminanceThreshold={0.62}
+            intensity={0.95}
+            luminanceThreshold={0.6}
             luminanceSmoothing={0.25}
             mipmapBlur
           />
