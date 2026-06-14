@@ -44,7 +44,7 @@ interface PlanetDef {
   moon?: { radius: number; distance: number; speed: number };
 }
 
-const SUN_POS: [number, number, number] = [-15, 5, 10];
+const SUN_POS: [number, number, number] = [-13, 3.5, 2];
 
 const PLANETS: PlanetDef[] = [
   { name: "Mercury", map: "mercury.jpg", position: [7, -2, -6], radius: 0.9, spin: 0.12, bump: 0.045 },
@@ -386,27 +386,28 @@ varying vec3 vView;
 ${SUN_NOISE_GLSL}
 void main(){
   vec3 p = normalize(vPos);
-  float t = uTime * 0.05;
-  // domain-warped turbulence → roiling, detailed plasma
-  vec3 q = p * 2.4;
+  float t = uTime * 0.04;
+  // domain-warped turbulence → fine granular convection
+  vec3 q = p * 3.0;
   float warp = fbm(q + vec3(t, t * 0.7, -t));
   float n  = fbm(q + warp * 0.9 + vec3(t * 0.5, -t * 0.3, t * 0.4));
-  float n2 = fbm(p * 7.5 + warp * 0.6 - vec3(t * 0.8, -t * 0.4, t * 0.6));
-  float n3 = fbm(p * 16.0 - vec3(t * 1.1));
-  float v = clamp((n * 0.55 + n2 * 0.32 + n3 * 0.13) * 0.5 + 0.5, 0.0, 1.0);
-  vec3 deep = vec3(0.5, 0.08, 0.02);
-  vec3 mid  = vec3(1.0, 0.40, 0.05);
-  vec3 hot  = vec3(1.0, 0.82, 0.32);
-  vec3 white= vec3(1.0, 0.98, 0.88);
-  vec3 col = mix(deep, mid, smoothstep(0.16, 0.45, v));
-  col = mix(col, hot, smoothstep(0.45, 0.72, v));
-  col = mix(col, white, smoothstep(0.80, 0.97, v));
-  // darker sunspots in the lowest troughs
-  col *= 0.5 + 0.5 * smoothstep(0.05, 0.2, v);
-  // bright chromosphere rim so it reads as a 3D sphere
-  float fres = pow(1.0 - max(dot(normalize(-vView), vNormal), 0.0), 2.2);
-  col += vec3(1.0, 0.5, 0.16) * fres * 0.85;
-  gl_FragColor = vec4(col * 1.6, 1.0);
+  float n2 = fbm(p * 9.0 + warp * 0.6 - vec3(t * 0.8, -t * 0.4, t * 0.6));
+  float n3 = fbm(p * 20.0 - vec3(t * 1.1));
+  float v = clamp((n * 0.52 + n2 * 0.34 + n3 * 0.14) * 0.5 + 0.5, 0.0, 1.0);
+  // deep reddish-orange granulation, like an H-alpha photo of the sun
+  vec3 c1 = vec3(0.26, 0.035, 0.008);
+  vec3 c2 = vec3(0.78, 0.17, 0.02);
+  vec3 c3 = vec3(1.0, 0.40, 0.07);
+  vec3 col = mix(c1, c2, smoothstep(0.18, 0.5, v));
+  col = mix(col, c3, smoothstep(0.5, 0.82, v));
+  // sparse bright active regions (plage / flares)
+  float spots = fbm(p * 18.0 + vec3(-t * 0.6, t * 0.4, t));
+  float plage = smoothstep(0.5, 0.82, spots) * smoothstep(0.42, 0.7, v);
+  col += vec3(1.0, 0.7, 0.32) * plage * 0.85;
+  // subtle contained chromosphere rim (no harsh white halo)
+  float fres = pow(1.0 - max(dot(normalize(-vView), vNormal), 0.0), 2.6);
+  col += vec3(1.0, 0.42, 0.12) * fres * 0.45;
+  gl_FragColor = vec4(col * 1.05, 1.0);
 }
 `;
 
@@ -443,26 +444,26 @@ function Sun({ onReady }: { onReady?: (mesh: THREE.Mesh | null) => void }) {
         <sphereGeometry args={[6, 128, 128]} />
         <primitive object={material} attach="material" />
       </mesh>
-      {/* inner corona */}
-      <mesh ref={coronaRef} scale={1.16}>
+      {/* inner corona — tight orange rim */}
+      <mesh ref={coronaRef} scale={1.1}>
         <sphereGeometry args={[6, 48, 48]} />
         <meshBasicMaterial
-          color="#ffae3c"
+          color="#d4521a"
           transparent
-          opacity={0.32}
+          opacity={0.22}
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
           toneMapped={false}
         />
       </mesh>
-      {/* outer glow halo */}
-      <mesh scale={1.9}>
+      {/* outer glow halo — faint and contained */}
+      <mesh scale={1.45}>
         <sphereGeometry args={[6, 32, 32]} />
         <meshBasicMaterial
-          color="#ff8a1e"
+          color="#a83610"
           transparent
-          opacity={0.1}
+          opacity={0.07}
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
@@ -1001,20 +1002,20 @@ export default function Universe({
                   key="godrays"
                   sun={sunMesh}
                   blendFunction={BlendFunction.SCREEN}
-                  samples={45}
-                  density={0.94}
-                  decay={0.92}
-                  weight={0.42}
-                  exposure={0.42}
-                  clampMax={1}
+                  samples={40}
+                  density={0.86}
+                  decay={0.9}
+                  weight={0.2}
+                  exposure={0.18}
+                  clampMax={0.85}
                   blur
                 />
               ]
             : []) as unknown as JSX.Element}
           <Bloom
-            intensity={1.2}
-            luminanceThreshold={0.5}
-            luminanceSmoothing={0.2}
+            intensity={0.85}
+            luminanceThreshold={0.62}
+            luminanceSmoothing={0.25}
             mipmapBlur
           />
         </EffectComposer>
