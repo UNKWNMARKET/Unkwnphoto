@@ -109,31 +109,20 @@ body {
   padding: 0;
   color: var(--ink);
   cursor: pointer;
-  /* A soft radial veil so the starfield reads faintly behind the title. */
+  /* A static soft radial veil so the starfield reads faintly behind the
+     title. Kept static (no background animation) to avoid flicker. */
   background: radial-gradient(
     120% 120% at 50% 50%,
-    rgba(2, 3, 9, 0.62) 0%,
-    rgba(2, 3, 9, 0.9) 70%,
+    rgba(2, 3, 9, 0.6) 0%,
+    rgba(2, 3, 9, 0.88) 70%,
     #02030a 100%
   );
-  animation: introVeilIn 2.4s ease forwards;
-  transition: background 1.6s ease, opacity 1.2s ease;
+  transition: opacity 1.4s ease;
 }
 
-@keyframes introVeilIn {
-  0% {
-    background: #02030a;
-  }
-}
-
-/* On enter: lift the veil so the warp is fully visible, then fade out. */
+/* On enter: fade the whole veil out (opacity only — smooth) so the
+   scene is revealed for the warp. */
 .intro-leaving {
-  background: radial-gradient(
-    120% 120% at 50% 50%,
-    rgba(2, 3, 9, 0) 0%,
-    rgba(2, 3, 9, 0.1) 60%,
-    rgba(2, 3, 9, 0.35) 100%
-  );
   opacity: 0;
   pointer-events: none;
 }
