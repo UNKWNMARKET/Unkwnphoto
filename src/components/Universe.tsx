@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   ScrollControls,
@@ -9,7 +9,8 @@ import {
   useTexture,
   useCubeTexture
 } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, GodRays } from "@react-three/postprocessing";
+import { BlendFunction } from "postprocessing";
 import * as THREE from "three";
 import type { Photo } from "../types";
 
@@ -386,28 +387,31 @@ ${SUN_NOISE_GLSL}
 void main(){
   vec3 p = normalize(vPos);
   float t = uTime * 0.05;
-  // churning convective surface
-  float n  = fbm(p * 2.6 + vec3(t, t * 0.6, -t));
-  float n2 = fbm(p * 6.5 - vec3(t * 0.8, -t * 0.4, t * 0.5));
-  float v = clamp((n * 0.6 + n2 * 0.4) * 0.5 + 0.5, 0.0, 1.0);
-  vec3 deep = vec3(0.55, 0.09, 0.02);
-  vec3 mid  = vec3(1.0, 0.42, 0.06);
+  // domain-warped turbulence → roiling, detailed plasma
+  vec3 q = p * 2.4;
+  float warp = fbm(q + vec3(t, t * 0.7, -t));
+  float n  = fbm(q + warp * 0.9 + vec3(t * 0.5, -t * 0.3, t * 0.4));
+  float n2 = fbm(p * 7.5 + warp * 0.6 - vec3(t * 0.8, -t * 0.4, t * 0.6));
+  float n3 = fbm(p * 16.0 - vec3(t * 1.1));
+  float v = clamp((n * 0.55 + n2 * 0.32 + n3 * 0.13) * 0.5 + 0.5, 0.0, 1.0);
+  vec3 deep = vec3(0.5, 0.08, 0.02);
+  vec3 mid  = vec3(1.0, 0.40, 0.05);
   vec3 hot  = vec3(1.0, 0.82, 0.32);
-  vec3 white= vec3(1.0, 0.97, 0.86);
-  vec3 col = mix(deep, mid, smoothstep(0.18, 0.46, v));
-  col = mix(col, hot, smoothstep(0.46, 0.72, v));
-  col = mix(col, white, smoothstep(0.80, 0.96, v));
+  vec3 white= vec3(1.0, 0.98, 0.88);
+  vec3 col = mix(deep, mid, smoothstep(0.16, 0.45, v));
+  col = mix(col, hot, smoothstep(0.45, 0.72, v));
+  col = mix(col, white, smoothstep(0.80, 0.97, v));
   // darker sunspots in the lowest troughs
-  col *= 0.55 + 0.45 * smoothstep(0.06, 0.22, v);
+  col *= 0.5 + 0.5 * smoothstep(0.05, 0.2, v);
   // bright chromosphere rim so it reads as a 3D sphere
   float fres = pow(1.0 - max(dot(normalize(-vView), vNormal), 0.0), 2.2);
-  col += vec3(1.0, 0.5, 0.16) * fres * 0.8;
-  gl_FragColor = vec4(col * 1.55, 1.0);
+  col += vec3(1.0, 0.5, 0.16) * fres * 0.85;
+  gl_FragColor = vec4(col * 1.6, 1.0);
 }
 `;
 
-function Sun() {
-  const ref = useRef<THREE.Mesh>(null);
+function Sun({ onReady }: { onReady?: (mesh: THREE.Mesh | null) => void }) {
+  const ref = useRef<THREE.Mesh | null>(null);
   const coronaRef = useRef<THREE.Mesh>(null);
   const material = useMemo(
     () =>
@@ -430,7 +434,12 @@ function Sun() {
   return (
     <group position={SUN_POS}>
       {/* procedural plasma core */}
-      <mesh ref={ref}>
+      <mesh
+        ref={(m) => {
+          ref.current = m;
+          onReady?.(m);
+        }}
+      >
         <sphereGeometry args={[6, 128, 128]} />
         <primitive object={material} attach="material" />
       </mesh>
@@ -902,11 +911,13 @@ function SpaceDust() {
 function Scene({
   photos,
   active,
-  onSelect
+  onSelect,
+  onSunReady
 }: {
   photos: Photo[];
   active: boolean;
   onSelect: (i: number) => void;
+  onSunReady: (mesh: THREE.Mesh | null) => void;
 }) {
   const panels = useMemo<PanelDef[]>(() => {
     if (photos.length === 0) return [];
@@ -937,7 +948,7 @@ function Scene({
       <MovingStars />
       <SpaceDust />
       <ShootingStars count={6} />
-      <Sun />
+      <Sun onReady={onSunReady} />
       {PLANETS.map((p) => (
         <Planet key={p.name} def={p} />
       ))}
@@ -964,6 +975,7 @@ export default function Universe({
   onSelect: (i: number) => void;
 }) {
   const pages = Math.max(6, (CAM_START - (NEPTUNE_Z - 14)) / 13);
+  const [sunMesh, setSunMesh] = useState<THREE.Mesh | null>(null);
 
   return (
     <div className="universe">
@@ -974,13 +986,34 @@ export default function Universe({
       >
         <Suspense fallback={null}>
           <ScrollControls pages={pages} damping={0.32} enabled={active}>
-            <Scene photos={photos} active={active} onSelect={onSelect} />
+            <Scene
+              photos={photos}
+              active={active}
+              onSelect={onSelect}
+              onSunReady={setSunMesh}
+            />
           </ScrollControls>
         </Suspense>
         <EffectComposer>
+          {(sunMesh
+            ? [
+                <GodRays
+                  key="godrays"
+                  sun={sunMesh}
+                  blendFunction={BlendFunction.SCREEN}
+                  samples={45}
+                  density={0.94}
+                  decay={0.92}
+                  weight={0.42}
+                  exposure={0.42}
+                  clampMax={1}
+                  blur
+                />
+              ]
+            : []) as unknown as JSX.Element}
           <Bloom
-            intensity={1.15}
-            luminanceThreshold={0.55}
+            intensity={1.2}
+            luminanceThreshold={0.5}
             luminanceSmoothing={0.2}
             mipmapBlur
           />
