@@ -1,6 +1,12 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ScrollControls, useScroll, Text, useTexture } from "@react-three/drei";
+import {
+  ScrollControls,
+  useScroll,
+  Text,
+  useTexture,
+  MeshReflectorMaterial
+} from "@react-three/drei";
 import * as THREE from "three";
 import type { Photo } from "../types";
 
@@ -147,45 +153,71 @@ function Artwork({
   );
 }
 
+/* ---------- Polished reflective stone floor ---------- */
+function Floor({ length, centerZ }: { length: number; centerZ: number }) {
+  const normal = useTexture(`${import.meta.env.BASE_URL}textures/floor_normal.jpg`);
+  normal.wrapS = normal.wrapT = THREE.RepeatWrapping;
+  normal.repeat.set(HALF_WIDTH, length / 3);
+  return (
+    <mesh position={[0, 0, centerZ]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[HALF_WIDTH * 2, length]} />
+      <MeshReflectorMaterial
+        mirror={0.6}
+        resolution={512}
+        blur={[300, 90]}
+        mixBlur={1}
+        mixStrength={1.8}
+        depthScale={1}
+        minDepthThreshold={0.3}
+        maxDepthThreshold={1.2}
+        roughness={0.7}
+        metalness={0.6}
+        color="#26242e"
+        normalMap={normal}
+        normalScale={new THREE.Vector2(0.06, 0.06)}
+      />
+    </mesh>
+  );
+}
+
 /* ---------- The room shell ---------- */
 function Hall({ frontZ, backZ }: { frontZ: number; backZ: number }) {
   const length = Math.abs(frontZ - backZ);
   const centerZ = (frontZ + backZ) / 2;
   return (
     <group>
-      {/* floor — dark polished stone that catches the lights */}
-      <mesh
-        position={[0, 0, centerZ]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[HALF_WIDTH * 2, length]} />
-        <meshStandardMaterial color="#46424e" metalness={0.45} roughness={0.4} />
-      </mesh>
+      <Floor length={length} centerZ={centerZ} />
       {/* ceiling */}
       <mesh position={[0, WALL_HEIGHT, centerZ]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[HALF_WIDTH * 2, length]} />
-        <meshStandardMaterial color="#5e5a68" roughness={0.95} />
+        <meshStandardMaterial color="#b7b1a6" roughness={0.97} />
       </mesh>
       {/* left wall */}
       <mesh position={[-HALF_WIDTH, WALL_HEIGHT / 2, centerZ]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[length, WALL_HEIGHT]} />
-        <meshStandardMaterial color="#7d7986" roughness={0.85} />
+        <meshStandardMaterial color="#cfc8bb" roughness={0.96} />
       </mesh>
       {/* right wall */}
       <mesh position={[HALF_WIDTH, WALL_HEIGHT / 2, centerZ]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[length, WALL_HEIGHT]} />
-        <meshStandardMaterial color="#7d7986" roughness={0.85} />
+        <meshStandardMaterial color="#cfc8bb" roughness={0.96} />
       </mesh>
-      {/* far wall */}
+      {/* far wall + a soft light so the hall end isn't a dark void */}
       <mesh position={[0, WALL_HEIGHT / 2, backZ]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[HALF_WIDTH * 2, WALL_HEIGHT]} />
-        <meshStandardMaterial color="#736f7c" roughness={0.85} />
+        <meshStandardMaterial color="#c6bfb3" roughness={0.96} />
       </mesh>
+      <pointLight
+        position={[0, WALL_HEIGHT - 1.2, backZ + 2.5]}
+        intensity={2.4}
+        distance={10}
+        decay={2}
+        color="#fff0d8"
+      />
       {/* entrance wall behind the start */}
       <mesh position={[0, WALL_HEIGHT / 2, frontZ]}>
         <planeGeometry args={[HALF_WIDTH * 2, WALL_HEIGHT]} />
-        <meshStandardMaterial color="#736f7c" roughness={0.85} />
+        <meshStandardMaterial color="#c6bfb3" roughness={0.96} />
       </mesh>
     </group>
   );
@@ -280,8 +312,8 @@ function Scene({
     <>
       <color attach="background" args={["#15131a"]} />
       <fog attach="fog" args={["#15131a", 24, 64]} />
-      <ambientLight intensity={1.05} color="#fff3e6" />
-      <hemisphereLight args={["#fff6ec", "#322e3a", 0.7]} />
+      <ambientLight intensity={0.6} color="#fff1de" />
+      <hemisphereLight args={["#fff4e6", "#3a3630", 0.5]} />
       <directionalLight position={[0, 6, 6]} intensity={0.3} color="#fff2dd" />
       <ResponsiveCamera />
 
@@ -315,10 +347,9 @@ export default function Museum({
   return (
     <div className="universe">
       <Canvas
-        flat
         shadows={false}
         dpr={[1, 1.5]}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{ antialias: true, powerPreference: "high-performance", toneMappingExposure: 1.15 }}
         camera={{ position: [0, EYE, 2], fov: 62, near: 0.1, far: 100 }}
       >
         <Suspense fallback={null}>
