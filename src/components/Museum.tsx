@@ -208,6 +208,101 @@ function Hall({ frontZ, backZ }: { frontZ: number; backZ: number }) {
   );
 }
 
+/* ---------- Coffered wood ceiling beams ---------- */
+function CofferedCeiling({ frontZ, backZ }: { frontZ: number; backZ: number }) {
+  const length = Math.abs(frontZ - backZ);
+  const centerZ = (frontZ + backZ) / 2;
+  const cross = useMemo(() => {
+    const arr: number[] = [];
+    for (let z = frontZ - 2; z > backZ + 1; z -= 2.4) arr.push(z);
+    return arr;
+  }, [frontZ, backZ]);
+  return (
+    <group position={[0, WALL_HEIGHT - 0.13, 0]}>
+      {[-2.6, 0, 2.6].map((x, i) => (
+        <mesh key={`l${i}`} position={[x, 0, centerZ]} castShadow>
+          <boxGeometry args={[0.16, 0.26, length]} />
+          <meshStandardMaterial color="#4a3a27" roughness={0.85} />
+        </mesh>
+      ))}
+      {cross.map((z, i) => (
+        <mesh key={`c${i}`} position={[0, 0, z]} castShadow>
+          <boxGeometry args={[HALF_WIDTH * 2, 0.26, 0.16]} />
+          <meshStandardMaterial color="#4a3a27" roughness={0.85} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/* ---------- A viewing bench ---------- */
+function Bench({ z }: { z: number }) {
+  return (
+    <group position={[0, 0, z]}>
+      <mesh position={[0, 0.34, 0]} castShadow receiveShadow>
+        <boxGeometry args={[2.1, 0.16, 0.62]} />
+        <meshStandardMaterial color="#34281d" roughness={0.5} metalness={0.05} />
+      </mesh>
+      <mesh position={[0, 0.22, 0]} castShadow>
+        <boxGeometry args={[2.2, 0.1, 0.7]} />
+        <meshStandardMaterial color="#1d160e" roughness={0.6} />
+      </mesh>
+      {([[-0.95, -0.26], [0.95, -0.26], [-0.95, 0.26], [0.95, 0.26]] as const).map(
+        ([lx, lz], i) => (
+          <mesh key={i} position={[lx, 0.09, lz]} castShadow>
+            <boxGeometry args={[0.08, 0.18, 0.08]} />
+            <meshStandardMaterial color="#120d08" roughness={0.7} />
+          </mesh>
+        )
+      )}
+    </group>
+  );
+}
+
+/* ---------- A plinth with a small sculpture ---------- */
+function Pedestal({ x, z, kind }: { x: number; z: number; kind: 0 | 1 }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.5, 1.1, 0.5]} />
+        <meshStandardMaterial color="#d9cfb9" roughness={0.7} />
+      </mesh>
+      {kind === 0 ? (
+        <mesh position={[0, 1.36, 0]} castShadow>
+          <icosahedronGeometry args={[0.26, 0]} />
+          <meshStandardMaterial color="#b79c63" metalness={0.85} roughness={0.28} />
+        </mesh>
+      ) : (
+        <mesh position={[0, 1.36, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <torusGeometry args={[0.2, 0.07, 16, 40]} />
+          <meshStandardMaterial color="#9aa3ad" metalness={0.9} roughness={0.25} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+/* ---------- Furnishings placed down the hall ---------- */
+function Furnishings({ placements }: { placements: ArtworkPlacement[] }) {
+  return (
+    <>
+      {placements.map((p, i) =>
+        i % 2 === 1 ? <Bench key={`bench${i}`} z={p.z} /> : null
+      )}
+      {placements.map((p, i) =>
+        i % 2 === 0 ? (
+          <Pedestal
+            key={`ped${i}`}
+            x={-p.side * 1.1}
+            z={p.z}
+            kind={(i % 4 === 0 ? 0 : 1) as 0 | 1}
+          />
+        ) : null
+      )}
+    </>
+  );
+}
+
 /* ---------- Ceiling light fixtures down the centre ---------- */
 function CeilingLights({ frontZ, backZ }: { frontZ: number; backZ: number }) {
   const fixtures = useMemo(() => {
@@ -303,7 +398,9 @@ function Scene({
       <ResponsiveCamera />
 
       <Hall frontZ={frontZ} backZ={backZ} />
+      <CofferedCeiling frontZ={frontZ} backZ={backZ} />
       <CeilingLights frontZ={frontZ} backZ={backZ} />
+      <Furnishings placements={placements} />
 
       <Suspense fallback={null}>
         {placements.map((p) => (
