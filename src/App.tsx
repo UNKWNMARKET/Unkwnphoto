@@ -50,7 +50,7 @@ export default function App() {
           </div>
           {photos.length > 0 && (
             <div className="hud-hint" aria-hidden="true">
-              scroll to walk the gallery
+              drag to look · ▲ ▼ or arrow keys to walk
             </div>
           )}
         </div>

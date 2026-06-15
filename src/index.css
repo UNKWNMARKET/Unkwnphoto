@@ -98,6 +98,43 @@ body {
   animation: pulse 3s ease-in-out infinite;
 }
 
+/* ---------- First-person tour controls ---------- */
+.tour-controls {
+  position: fixed;
+  bottom: clamp(1.4rem, 5vh, 2.8rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  gap: 0.7rem;
+}
+
+.tour-btn {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  color: var(--ink);
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  user-select: none;
+  touch-action: none;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.tour-btn:hover {
+  border-color: var(--accent);
+}
+
+.tour-btn:active {
+  background: rgba(255, 255, 255, 0.14);
+  transform: scale(0.94);
+}
+
 /* ---------- Intro ---------- */
 .intro {
   position: fixed;

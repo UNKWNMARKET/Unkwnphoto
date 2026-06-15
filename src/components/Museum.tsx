@@ -1,14 +1,13 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import {
-  ScrollControls,
-  useScroll,
-  Text,
-  useTexture,
-  MeshReflectorMaterial
-} from "@react-three/drei";
+import { Text, useTexture, MeshReflectorMaterial } from "@react-three/drei";
 import * as THREE from "three";
 import type { Photo } from "../types";
+
+export interface MoveState {
+  dir: number; // -1 back, 0 idle, +1 forward
+  impulse: number; // from wheel
+}
 
 /* ---------- Gallery dimensions ---------- */
 const HALF_WIDTH = 4; // side walls at x = ±4
@@ -17,12 +16,6 @@ const EYE = 1.6; // camera/eye height
 const FIRST_Z = -7; // first artwork
 const GAP = 7; // spacing between artworks along the hall
 const FONT = `${import.meta.env.BASE_URL}fonts/SpaceGrotesk.ttf`;
-
-const _v = new THREE.Vector3();
-
-function easeOutCubic(t: number) {
-  return 1 - Math.pow(1 - t, 3);
-}
 
 interface ArtworkPlacement {
   photo: Photo;
@@ -337,27 +330,90 @@ function ResponsiveCamera() {
   return null;
 }
 
-/* ---------- Camera that walks the hall ---------- */
-function Rig({ active, endZ }: { active: boolean; endZ: number }) {
-  const scroll = useScroll();
-  const { camera } = useThree();
-  const start = useRef<number | null>(null);
+/* ---------- First-person tour controls (drag to look, walk) ---------- */
+interface Bounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+function FirstPerson({
+  active,
+  moveRef,
+  bounds
+}: {
+  active: boolean;
+  moveRef: React.MutableRefObject<MoveState>;
+  bounds: Bounds;
+}) {
+  const { camera, gl } = useThree();
+  const yaw = useRef(0); // 0 → looking down the hall (−z)
+  const pitch = useRef(0);
+  const drag = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const el = gl.domElement;
+    const onDown = (e: PointerEvent) => {
+      drag.current = { x: e.clientX, y: e.clientY };
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!drag.current) return;
+      const dx = e.clientX - drag.current.x;
+      const dy = e.clientY - drag.current.y;
+      drag.current = { x: e.clientX, y: e.clientY };
+      yaw.current -= dx * 0.004;
+      pitch.current = Math.max(-0.7, Math.min(0.7, pitch.current - dy * 0.004));
+    };
+    const onUp = () => {
+      drag.current = null;
+    };
+    const setDir = (down: boolean) => (e: KeyboardEvent) => {
+      if (e.key === "w" || e.key === "ArrowUp") moveRef.current.dir = down ? 1 : 0;
+      if (e.key === "s" || e.key === "ArrowDown") moveRef.current.dir = down ? -1 : 0;
+    };
+    const kd = setDir(true);
+    const ku = setDir(false);
+    const onWheel = (e: WheelEvent) => {
+      moveRef.current.impulse += -e.deltaY * 0.0016;
+    };
+    el.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("keydown", kd);
+    window.addEventListener("keyup", ku);
+    el.addEventListener("wheel", onWheel, { passive: true });
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("keydown", kd);
+      window.removeEventListener("keyup", ku);
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, [gl, moveRef]);
 
   useFrame((state, dt) => {
-    const t = state.clock.elapsedTime;
     if (!active) {
-      _v.set(Math.sin(t * 0.18) * 0.18, EYE + Math.sin(t * 0.5) * 0.02, 2.5);
-      camera.position.lerp(_v, 1 - Math.exp(-3 * dt));
+      const t = state.clock.elapsedTime;
+      camera.position.set(Math.sin(t * 0.18) * 0.15, EYE, 2.5);
       camera.lookAt(0, EYE, -10);
       return;
     }
-    if (start.current === null) start.current = t;
-    const intro = 1 - easeOutCubic(Math.min(1, (t - start.current) / 1.6));
-    const z = THREE.MathUtils.lerp(2, endZ, scroll.offset) + intro * 4;
-    const sway = Math.sin(scroll.offset * Math.PI * 2) * 0.22 + Math.sin(t * 0.22) * 0.04;
-    _v.set(sway, EYE + Math.sin(t * 0.4) * 0.015, z);
-    camera.position.lerp(_v, 1 - Math.exp(-4 * dt));
-    camera.lookAt(sway * 0.4, EYE, camera.position.z - 10);
+    camera.rotation.order = "YXZ";
+    camera.rotation.y = yaw.current;
+    camera.rotation.x = pitch.current;
+
+    const m = moveRef.current;
+    let step = m.dir * 3.0 * dt + m.impulse;
+    m.impulse *= 0.82;
+    if (Math.abs(step) > 1e-5) {
+      camera.position.x += -Math.sin(yaw.current) * step;
+      camera.position.z += -Math.cos(yaw.current) * step;
+    }
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, bounds.minX, bounds.maxX);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, bounds.minZ, bounds.maxZ);
+    camera.position.y = EYE;
   });
   return null;
 }
@@ -366,11 +422,13 @@ function Rig({ active, endZ }: { active: boolean; endZ: number }) {
 function Scene({
   photos,
   active,
-  onSelect
+  onSelect,
+  moveRef
 }: {
   photos: Photo[];
   active: boolean;
   onSelect: (i: number) => void;
+  moveRef: React.MutableRefObject<MoveState>;
 }) {
   const placements = useMemo<ArtworkPlacement[]>(
     () =>
@@ -386,7 +444,12 @@ function Scene({
   const lastZ = placements.length ? FIRST_Z - (placements.length - 1) * GAP : FIRST_Z;
   const frontZ = 6;
   const backZ = lastZ - 8;
-  const endZ = lastZ - 4;
+  const bounds: Bounds = {
+    minX: -(HALF_WIDTH - 0.6),
+    maxX: HALF_WIDTH - 0.6,
+    minZ: backZ + 1.2,
+    maxZ: frontZ - 1.2
+  };
 
   return (
     <>
@@ -408,12 +471,12 @@ function Scene({
         ))}
       </Suspense>
 
-      <Rig active={active} endZ={endZ} />
+      <FirstPerson active={active} moveRef={moveRef} bounds={bounds} />
     </>
   );
 }
 
-/* ---------- Canvas wrapper ---------- */
+/* ---------- Canvas wrapper + on-screen walk controls ---------- */
 export default function Museum({
   photos,
   active,
@@ -423,8 +486,8 @@ export default function Museum({
   active: boolean;
   onSelect: (i: number) => void;
 }) {
-  const count = Math.max(1, photos.length);
-  const pages = Math.max(3, ((count - 1) * GAP + 12) / 9);
+  const moveRef = useRef<MoveState>({ dir: 0, impulse: 0 });
+  const set = (d: number) => () => (moveRef.current.dir = d);
 
   return (
     <div className="universe">
@@ -435,11 +498,37 @@ export default function Museum({
         camera={{ position: [0, EYE, 2], fov: 62, near: 0.1, far: 100 }}
       >
         <Suspense fallback={null}>
-          <ScrollControls pages={pages} damping={0.3}>
-            <Scene photos={photos} active={active} onSelect={onSelect} />
-          </ScrollControls>
+          <Scene
+            photos={photos}
+            active={active}
+            onSelect={onSelect}
+            moveRef={moveRef}
+          />
         </Suspense>
       </Canvas>
+
+      {active && (
+        <div className="tour-controls">
+          <button
+            className="tour-btn"
+            aria-label="Walk forward"
+            onPointerDown={set(1)}
+            onPointerUp={set(0)}
+            onPointerLeave={set(0)}
+          >
+            ▲
+          </button>
+          <button
+            className="tour-btn"
+            aria-label="Walk back"
+            onPointerDown={set(-1)}
+            onPointerUp={set(0)}
+            onPointerLeave={set(0)}
+          >
+            ▼
+          </button>
+        </div>
+      )}
     </div>
   );
 }
