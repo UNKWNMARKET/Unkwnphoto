@@ -418,6 +418,138 @@ function FirstPerson({
   return null;
 }
 
+/* ---------- Animated gallery visitors ---------- */
+const VISITOR_COATS = ["#2b2b33", "#3a2e26", "#243039", "#39323f", "#2f2a21"];
+
+function Visitor({
+  position,
+  facing,
+  phase,
+  coat
+}: {
+  position: [number, number, number];
+  facing: number;
+  phase: number;
+  coat: string;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  const head = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    const t = state.clock.elapsedTime + phase;
+    if (ref.current) {
+      ref.current.position.y = position[1] + Math.sin(t * 1.1) * 0.01;
+      ref.current.rotation.y = facing + Math.sin(t * 0.25) * 0.06;
+    }
+    if (head.current) head.current.rotation.y = Math.sin(t * 0.4 + 1) * 0.22;
+  });
+  return (
+    <group ref={ref} position={position} rotation={[0, facing, 0]}>
+      <mesh position={[-0.1, 0.42, 0]} castShadow>
+        <capsuleGeometry args={[0.085, 0.55, 4, 8]} />
+        <meshStandardMaterial color="#181820" roughness={0.85} />
+      </mesh>
+      <mesh position={[0.1, 0.42, 0]} castShadow>
+        <capsuleGeometry args={[0.085, 0.55, 4, 8]} />
+        <meshStandardMaterial color="#181820" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 1.04, 0]} castShadow>
+        <capsuleGeometry args={[0.18, 0.55, 6, 12]} />
+        <meshStandardMaterial color={coat} roughness={0.8} />
+      </mesh>
+      <mesh position={[-0.23, 1.04, 0.02]} rotation={[0, 0, 0.1]} castShadow>
+        <capsuleGeometry args={[0.058, 0.48, 4, 8]} />
+        <meshStandardMaterial color={coat} roughness={0.8} />
+      </mesh>
+      <mesh position={[0.23, 1.04, 0.02]} rotation={[0, 0, -0.1]} castShadow>
+        <capsuleGeometry args={[0.058, 0.48, 4, 8]} />
+        <meshStandardMaterial color={coat} roughness={0.8} />
+      </mesh>
+      <mesh ref={head} position={[0, 1.47, 0]} castShadow>
+        <sphereGeometry args={[0.13, 16, 16]} />
+        <meshStandardMaterial color="#c79e78" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 1.52, -0.015]} castShadow>
+        <sphereGeometry args={[0.137, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
+        <meshStandardMaterial color="#1a140e" roughness={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
+function Visitors({ placements }: { placements: ArtworkPlacement[] }) {
+  const people = useMemo(
+    () =>
+      placements
+        .filter((_, i) => i % 2 === 0)
+        .map((p, k) => ({
+          key: p.photo.id,
+          position: [
+            p.side * (HALF_WIDTH - 1.8),
+            0,
+            p.z + (k % 2 === 0 ? 0.5 : -0.5)
+          ] as [number, number, number],
+          facing: p.side === -1 ? -Math.PI / 2 : Math.PI / 2,
+          phase: k * 1.7,
+          coat: VISITOR_COATS[k % VISITOR_COATS.length]
+        })),
+    [placements]
+  );
+  return (
+    <>
+      {people.map((pp) => (
+        <Visitor
+          key={pp.key}
+          position={pp.position}
+          facing={pp.facing}
+          phase={pp.phase}
+          coat={pp.coat}
+        />
+      ))}
+    </>
+  );
+}
+
+/* ---------- Doorway thresholds that split the hall into rooms ---------- */
+function RoomDivider({ z }: { z: number }) {
+  const openTop = 3.0;
+  const jamb = 0.5;
+  return (
+    <group position={[0, 0, z]}>
+      {/* header */}
+      <mesh position={[0, (openTop + WALL_HEIGHT) / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[HALF_WIDTH * 2, WALL_HEIGHT - openTop, 0.3]} />
+        <meshStandardMaterial color="#c0b49b" roughness={0.95} />
+      </mesh>
+      {/* side jambs flush to the walls (outside the walkable area) */}
+      <mesh position={[-(HALF_WIDTH - jamb / 2), openTop / 2, 0]} castShadow>
+        <boxGeometry args={[jamb, openTop, 0.3]} />
+        <meshStandardMaterial color="#c0b49b" roughness={0.95} />
+      </mesh>
+      <mesh position={[HALF_WIDTH - jamb / 2, openTop / 2, 0]} castShadow>
+        <boxGeometry args={[jamb, openTop, 0.3]} />
+        <meshStandardMaterial color="#c0b49b" roughness={0.95} />
+      </mesh>
+    </group>
+  );
+}
+
+function RoomDividers({ placements }: { placements: ArtworkPlacement[] }) {
+  const dividers = useMemo(() => {
+    const arr: number[] = [];
+    for (let i = 0; i + 1 < placements.length; i++) {
+      if ((i + 1) % 3 === 0) arr.push((placements[i].z + placements[i + 1].z) / 2);
+    }
+    return arr;
+  }, [placements]);
+  return (
+    <>
+      {dividers.map((z, i) => (
+        <RoomDivider key={i} z={z} />
+      ))}
+    </>
+  );
+}
+
 /* ---------- Scene ---------- */
 function Scene({
   photos,
@@ -464,6 +596,8 @@ function Scene({
       <CofferedCeiling frontZ={frontZ} backZ={backZ} />
       <CeilingLights frontZ={frontZ} backZ={backZ} />
       <Furnishings placements={placements} />
+      <RoomDividers placements={placements} />
+      <Visitors placements={placements} />
 
       <Suspense fallback={null}>
         {placements.map((p) => (
