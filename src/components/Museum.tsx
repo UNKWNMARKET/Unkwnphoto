@@ -24,23 +24,6 @@ function easeOutCubic(t: number) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// Soft warm radial gradient used to fake a spotlight wash on the wall.
-let glowTexture: THREE.CanvasTexture | null = null;
-function getGlowTexture() {
-  if (glowTexture) return glowTexture;
-  const c = document.createElement("canvas");
-  c.width = c.height = 256;
-  const ctx = c.getContext("2d")!;
-  const g = ctx.createRadialGradient(128, 128, 8, 128, 128, 128);
-  g.addColorStop(0, "rgba(255,240,214,0.85)");
-  g.addColorStop(0.45, "rgba(255,228,188,0.28)");
-  g.addColorStop(1, "rgba(255,228,188,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 256);
-  glowTexture = new THREE.CanvasTexture(c);
-  return glowTexture;
-}
-
 interface ArtworkPlacement {
   photo: Photo;
   index: number;
@@ -75,37 +58,48 @@ function Artwork({
 
   const frameBorder = 0.16;
   const matBorder = 0.12;
-  const glow = getGlowTexture();
 
   // Left wall faces +x (rotY +90°), right wall faces -x (rotY -90°).
   const rotationY = side === -1 ? Math.PI / 2 : -Math.PI / 2;
   const x = side * (HALF_WIDTH - 0.06);
 
+  const spotRef = useRef<THREE.SpotLight>(null);
+  const targetRef = useRef<THREE.Object3D>(null);
+  useEffect(() => {
+    if (spotRef.current && targetRef.current) {
+      spotRef.current.target = targetRef.current;
+    }
+  }, []);
+
   return (
     <group position={[x, EYE, z]} rotation={[0, rotationY, 0]}>
-      {/* spotlight wash on the wall behind the piece */}
-      <mesh position={[0, 0.1, -0.05]} renderOrder={-1}>
-        <planeGeometry args={[w + 2.4, h + 2.8]} />
-        <meshBasicMaterial
-          map={glow}
-          transparent
-          opacity={0.5}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </mesh>
+      {/* warm gallery spotlight: washes the wall + casts a soft shadow */}
+      <spotLight
+        ref={spotRef}
+        position={[0, 2.9, 1.1]}
+        angle={0.5}
+        penumbra={0.9}
+        intensity={13}
+        distance={9}
+        decay={1.6}
+        color="#ffe9cf"
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0008}
+      />
+      <object3D ref={targetRef} position={[0, -0.5, 0.2]} />
 
       {/* frame */}
       <mesh position={[0, 0, 0.02]} castShadow>
         <boxGeometry
           args={[w + frameBorder + matBorder, h + frameBorder + matBorder, 0.1]}
         />
-        <meshStandardMaterial color="#0e0d11" metalness={0.35} roughness={0.5} />
+        <meshStandardMaterial color="#100e0a" metalness={0.3} roughness={0.55} />
       </mesh>
-      {/* white mat board */}
+      {/* off-white mat board */}
       <mesh position={[0, 0, 0.075]}>
         <planeGeometry args={[w + matBorder, h + matBorder]} />
-        <meshStandardMaterial color="#f3eee4" roughness={0.95} />
+        <meshStandardMaterial color="#efe7d6" roughness={0.95} />
       </mesh>
       {/* the photo (unlit so colours stay true and crisp) */}
       <mesh
@@ -140,15 +134,6 @@ function Artwork({
           {photo.title.toUpperCase()}
         </Text>
       </group>
-
-      {/* warm pool of light on this piece */}
-      <pointLight
-        position={[0, 1.4, 1.6]}
-        intensity={5}
-        distance={7}
-        decay={2}
-        color="#ffe6c2"
-      />
     </group>
   );
 }
@@ -159,20 +144,20 @@ function Floor({ length, centerZ }: { length: number; centerZ: number }) {
   normal.wrapS = normal.wrapT = THREE.RepeatWrapping;
   normal.repeat.set(HALF_WIDTH, length / 3);
   return (
-    <mesh position={[0, 0, centerZ]} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh position={[0, 0, centerZ]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[HALF_WIDTH * 2, length]} />
       <MeshReflectorMaterial
-        mirror={0.6}
+        mirror={0.35}
         resolution={512}
-        blur={[300, 90]}
-        mixBlur={1}
-        mixStrength={1.8}
+        blur={[320, 110]}
+        mixBlur={1.4}
+        mixStrength={0.9}
         depthScale={1}
-        minDepthThreshold={0.3}
-        maxDepthThreshold={1.2}
-        roughness={0.7}
-        metalness={0.6}
-        color="#26242e"
+        minDepthThreshold={0.4}
+        maxDepthThreshold={1.3}
+        roughness={0.82}
+        metalness={0.2}
+        color="#b6a684"
         normalMap={normal}
         normalScale={new THREE.Vector2(0.06, 0.06)}
       />
@@ -190,34 +175,34 @@ function Hall({ frontZ, backZ }: { frontZ: number; backZ: number }) {
       {/* ceiling */}
       <mesh position={[0, WALL_HEIGHT, centerZ]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[HALF_WIDTH * 2, length]} />
-        <meshStandardMaterial color="#b7b1a6" roughness={0.97} />
+        <meshStandardMaterial color="#b8a98c" roughness={0.97} />
       </mesh>
       {/* left wall */}
-      <mesh position={[-HALF_WIDTH, WALL_HEIGHT / 2, centerZ]} rotation={[0, Math.PI / 2, 0]}>
+      <mesh position={[-HALF_WIDTH, WALL_HEIGHT / 2, centerZ]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[length, WALL_HEIGHT]} />
-        <meshStandardMaterial color="#cfc8bb" roughness={0.96} />
+        <meshStandardMaterial color="#cdc1a9" roughness={0.97} />
       </mesh>
       {/* right wall */}
-      <mesh position={[HALF_WIDTH, WALL_HEIGHT / 2, centerZ]} rotation={[0, -Math.PI / 2, 0]}>
+      <mesh position={[HALF_WIDTH, WALL_HEIGHT / 2, centerZ]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[length, WALL_HEIGHT]} />
-        <meshStandardMaterial color="#cfc8bb" roughness={0.96} />
+        <meshStandardMaterial color="#cdc1a9" roughness={0.97} />
       </mesh>
       {/* far wall + a soft light so the hall end isn't a dark void */}
       <mesh position={[0, WALL_HEIGHT / 2, backZ]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[HALF_WIDTH * 2, WALL_HEIGHT]} />
-        <meshStandardMaterial color="#c6bfb3" roughness={0.96} />
+        <meshStandardMaterial color="#c2ad8f" roughness={0.97} />
       </mesh>
       <pointLight
-        position={[0, WALL_HEIGHT - 1.2, backZ + 2.5]}
-        intensity={2.4}
-        distance={10}
+        position={[0, 2.6, backZ + 3]}
+        intensity={5}
+        distance={14}
         decay={2}
-        color="#fff0d8"
+        color="#ffeccf"
       />
       {/* entrance wall behind the start */}
       <mesh position={[0, WALL_HEIGHT / 2, frontZ]}>
         <planeGeometry args={[HALF_WIDTH * 2, WALL_HEIGHT]} />
-        <meshStandardMaterial color="#c6bfb3" roughness={0.96} />
+        <meshStandardMaterial color="#c2ad8f" roughness={0.97} />
       </mesh>
     </group>
   );
@@ -310,10 +295,10 @@ function Scene({
 
   return (
     <>
-      <color attach="background" args={["#15131a"]} />
-      <fog attach="fog" args={["#15131a", 24, 64]} />
-      <ambientLight intensity={0.6} color="#fff1de" />
-      <hemisphereLight args={["#fff4e6", "#3a3630", 0.5]} />
+      <color attach="background" args={["#1c160f"]} />
+      <fog attach="fog" args={["#241c12", 45, 120]} />
+      <ambientLight intensity={0.5} color="#fff1e2" />
+      <hemisphereLight args={["#ffe9d2", "#3a3226", 0.4]} />
       <directionalLight position={[0, 6, 6]} intensity={0.3} color="#fff2dd" />
       <ResponsiveCamera />
 
@@ -347,9 +332,9 @@ export default function Museum({
   return (
     <div className="universe">
       <Canvas
-        shadows={false}
+        shadows="soft"
         dpr={[1, 1.5]}
-        gl={{ antialias: true, powerPreference: "high-performance", toneMappingExposure: 1.15 }}
+        gl={{ antialias: true, powerPreference: "high-performance", toneMappingExposure: 1.1 }}
         camera={{ position: [0, EYE, 2], fov: 62, near: 0.1, far: 100 }}
       >
         <Suspense fallback={null}>
