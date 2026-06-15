@@ -1,18 +1,17 @@
 interface IntroProps {
   onEnter: () => void;
-  leaving: boolean;
 }
 
-export default function Intro({ onEnter, leaving }: IntroProps) {
+export default function Intro({ onEnter }: IntroProps) {
   return (
     <button
       type="button"
-      className={`intro${leaving ? " intro-leaving" : ""}`}
+      className="intro"
       onClick={onEnter}
-      disabled={leaving}
-      aria-label="Enter Unkwnphoto"
+      aria-label="Enter the Unkwnphoto gallery"
     >
       <div className="intro-inner">
+        <span className="intro-kicker">The Gallery</span>
         <h1 className="intro-title">Unkwnphoto</h1>
         <span className="intro-cta">click to enter</span>
       </div>

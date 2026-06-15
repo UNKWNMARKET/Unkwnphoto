@@ -140,16 +140,28 @@ body {
   opacity: 0;
 }
 
+.intro-kicker {
+  display: block;
+  margin-bottom: 1.4rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.52em;
+  text-indent: 0.52em;
+  text-transform: uppercase;
+  color: rgba(220, 200, 170, 0.7);
+  opacity: 0;
+  animation: fadeIn 1.6s ease 0.1s forwards;
+}
+
 .intro-title {
   margin: 0;
-  font-size: clamp(2.6rem, 9vw, 6rem);
+  font-size: clamp(2.4rem, 8.5vw, 5.4rem);
   font-weight: 300;
   letter-spacing: 0.42em;
   text-indent: 0.42em;
   text-transform: uppercase;
   opacity: 0;
   animation: fadeUp 2.4s ease 0.3s forwards;
-  text-shadow: 0 0 40px rgba(138, 162, 255, 0.35);
+  text-shadow: 0 0 50px rgba(255, 220, 170, 0.25);
 }
 
 .intro-cta {

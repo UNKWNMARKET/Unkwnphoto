@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import Universe from "./components/Universe";
+import Museum from "./components/Museum";
 import Intro from "./components/Intro";
 import Lightbox from "./components/Lightbox";
 import Manage from "./components/Manage";
 import type { Photo } from "./types";
 
-type Phase = "intro" | "warping" | "entered";
-
 export default function App() {
-  const [phase, setPhase] = useState<Phase>("intro");
-  const entered = phase === "entered";
+  const [entered, setEntered] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [managing, setManaging] = useState(false);
@@ -21,8 +18,7 @@ export default function App() {
       const data = (await res.json()) as Photo[];
       setPhotos(data);
     } catch {
-      // No back end (e.g. the static GitHub Pages preview) — fall back to the
-      // bundled demo photos so the journey still has something to show.
+      // No back end (static preview) — fall back to bundled demo photos.
       try {
         const base = import.meta.env.BASE_URL;
         const res = await fetch(`${base}demo-photos.json`);
@@ -38,18 +34,11 @@ export default function App() {
     loadPhotos();
   }, [loadPhotos]);
 
-  const enter = useCallback(() => {
-    setPhase("warping");
-    window.setTimeout(() => setPhase("entered"), 1900);
-  }, []);
-
   return (
     <div className="app">
-      <Universe photos={photos} active={entered} onSelect={setLightboxIndex} />
+      <Museum photos={photos} active={entered} onSelect={setLightboxIndex} />
 
-      {phase !== "entered" && (
-        <Intro onEnter={enter} leaving={phase === "warping"} />
-      )}
+      {!entered && <Intro onEnter={() => setEntered(true)} />}
 
       {entered && (
         <div className="hud">
@@ -61,7 +50,7 @@ export default function App() {
           </div>
           {photos.length > 0 && (
             <div className="hud-hint" aria-hidden="true">
-              scroll to travel the system
+              scroll to walk the gallery
             </div>
           )}
         </div>

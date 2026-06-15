@@ -11,3 +11,7 @@ data/photos.json
 .DS_Store
 .env
 .env.local
+
+# Python cache
+__pycache__/
+*.pyc
