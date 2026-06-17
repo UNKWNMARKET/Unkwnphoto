@@ -50,7 +50,7 @@ export default function App() {
           </div>
           {photos.length > 0 && (
             <div className="hud-hint" aria-hidden="true">
-              drag to look · ▲ ▼ or arrow keys to walk
+              drag to look · ‹ › or arrow keys to change room
             </div>
           )}
         </div>

@@ -98,6 +98,59 @@ body {
   animation: pulse 3s ease-in-out infinite;
 }
 
+/* ---------- Room navigation ---------- */
+.room-fade {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  background: #0a0908;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+.room-fade.on {
+  opacity: 1;
+}
+.room-nav {
+  position: fixed;
+  bottom: clamp(1.3rem, 4.5vh, 2.6rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+}
+.room-name {
+  font-size: 0.7rem;
+  letter-spacing: 0.26em;
+  text-indent: 0.26em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.room-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  color: var(--ink);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.room-btn:hover {
+  border-color: var(--accent);
+}
+.room-btn:active {
+  transform: scale(0.94);
+}
+
 /* ---------- First-person tour controls ---------- */
 .tour-controls {
   position: fixed;
