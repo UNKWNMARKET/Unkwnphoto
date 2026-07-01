@@ -98,6 +98,19 @@ body {
   animation: pulse 3s ease-in-out infinite;
 }
 
+/* ---------- Photographic vignette over the 3D view ---------- */
+.vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 120% 100% at 50% 45%,
+    transparent 58%,
+    rgba(8, 6, 4, 0.32) 100%
+  );
+}
+
 /* ---------- Room navigation ---------- */
 .room-fade {
   position: fixed;
@@ -571,6 +584,89 @@ body {
   color: var(--ink);
   font-size: 1.4rem;
   cursor: pointer;
+}
+
+/* ---------- Drag & drop upload zone ---------- */
+.dropzone {
+  border: 1.5px dashed rgba(170, 185, 235, 0.35);
+  border-radius: 14px;
+  padding: 1.6rem 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 1.2rem;
+  transition: border-color 0.15s, background 0.15s;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dropzone:hover,
+.dropzone.over {
+  border-color: var(--accent);
+  background: rgba(140, 160, 255, 0.07);
+}
+
+.dropzone.busy {
+  cursor: progress;
+}
+
+.dropzone-title {
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.dropzone-sub {
+  margin-top: 0.45rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.dropzone-bar {
+  margin: 0.9rem auto 0;
+  width: min(320px, 90%);
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.dropzone-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7d96ff, #5d72e6);
+  transition: width 0.3s ease;
+}
+
+.edit-title,
+.edit-desc {
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.25rem 0.45rem;
+  width: 100%;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.edit-title {
+  font-weight: 500;
+}
+
+.edit-desc {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.edit-title:hover,
+.edit-desc:hover {
+  border-color: var(--border);
+}
+
+.edit-title:focus,
+.edit-desc:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .manage-form {
