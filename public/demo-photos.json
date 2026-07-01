@@ -1,0 +1,10 @@
+[
+  { "id": "sample-1", "title": "Event Horizon", "description": "Long exposure over still water — sample image, replace from the Manage page.", "url": "samples/nebula.svg", "createdAt": "2026-01-01T00:00:09.000Z" },
+  { "id": "sample-2", "title": "Quiet Orbit", "description": "Cool tones and negative space — sample image.", "url": "samples/aurora.svg", "createdAt": "2026-01-01T00:00:08.000Z" },
+  { "id": "sample-3", "title": "First Light", "description": "Warm gradient at dawn — sample image.", "url": "samples/ember.svg", "createdAt": "2026-01-01T00:00:07.000Z" },
+  { "id": "sample-4", "title": "Drift", "description": "Sample image — replace from the Manage page.", "url": "samples/aurora.svg", "createdAt": "2026-01-01T00:00:06.000Z" },
+  { "id": "sample-5", "title": "Ember Field", "description": "Sample image — replace from the Manage page.", "url": "samples/ember.svg", "createdAt": "2026-01-01T00:00:05.000Z" },
+  { "id": "sample-6", "title": "Nebula II", "description": "Sample image — replace from the Manage page.", "url": "samples/nebula.svg", "createdAt": "2026-01-01T00:00:04.000Z" },
+  { "id": "sample-7", "title": "Still Water", "description": "Sample image — replace from the Manage page.", "url": "samples/aurora.svg", "createdAt": "2026-01-01T00:00:03.000Z" },
+  { "id": "sample-8", "title": "Afterglow", "description": "Sample image — replace from the Manage page.", "url": "samples/ember.svg", "createdAt": "2026-01-01T00:00:02.000Z" }
+]
