@@ -95,3 +95,6 @@ public/fonts/           Space Grotesk (in-scene labels)
   by Jerome Etienne (MIT).
 - In-scene typeface: [Space Grotesk](https://github.com/floriankarsten/space-grotesk)
   (SIL Open Font License 1.1).
+- Visitor character ("HVGirl") and ocean-wave normal map from the
+  [Babylon.js](https://github.com/BabylonJS/Assets) / [three.js](https://github.com/mrdoob/three.js)
+  example assets (Apache-2.0 / MIT).

@@ -5,10 +5,12 @@ import {
   MeshReflectorMaterial,
   ContactShadows,
   useTexture,
+  useGLTF,
   Text
 } from "@react-three/drei";
 import * as THREE from "three";
 import { Water } from "three/examples/jsm/objects/Water.js";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { Photo } from "../types";
 
 const BASE = import.meta.env.BASE_URL;
@@ -262,300 +264,109 @@ function Boats() {
   );
 }
 
-/* ---------- Visitors ---------- */
-interface Wardrobe {
-  coat: string;
-  pants: string;
-  skin: string;
-  hair: string;
-  scarf?: string;
-}
+/* ---------- Visitors: real skinned humans with mocap animation ---------- */
+const VISITOR_URL = `${BASE}models/visitor.glb`;
+// The model's rest pose faces +z; our "forward" convention is −z.
+const MODEL_YAW = Math.PI;
 
-const WARDROBES: Wardrobe[] = [
-  { coat: "#8a6f4d", pants: "#2a2622", skin: "#c9a181", hair: "#3b2a1a", scarf: "#7a2e2e" },
-  { coat: "#33363e", pants: "#1d1f24", skin: "#b98d6d", hair: "#17130f" },
-  { coat: "#4b5563", pants: "#26292f", skin: "#d8b090", hair: "#5a4630" },
-  { coat: "#565c46", pants: "#2b271f", skin: "#8d6748", hair: "#0f0d0b", scarf: "#b58a3c" },
-  { coat: "#6e675d", pants: "#211f1c", skin: "#c39a77", hair: "#2e1f18" }
+// per-visitor outfits: recolour the named clothing materials, never the skin
+const OUTFITS = [
+  { tee: "#4a6fa8", shorts: "#2e3138", hair: "#0a0806" },
+  { tee: "#7a4a94", shorts: "#33415c", hair: "#241207" },
+  { tee: "#3f6d5a", shorts: "#b8a06a", hair: "#0a0806" },
+  { tee: "#b05555", shorts: "#3a3f4a", hair: "#3a2414" },
+  { tee: "#d9c9a8", shorts: "#6b4a35", hair: "#100b08" },
+  { tee: "#486b8f", shorts: "#8a8378", hair: "#0a0806" }
 ];
 
-interface Build {
-  h: number; // height multiplier
-  b: number; // breadth multiplier
-}
-
-function Person({
+function Visitor({
   mode,
   position,
   faceYaw,
   phase,
-  wardrobe,
-  garment,
-  hair,
-  pose,
-  build,
+  tint,
+  scale,
   walkPath
 }: {
-  mode: "stand" | "talk" | "walk";
+  mode: "idle" | "walk";
   position: [number, number, number];
   faceYaw: number;
   phase: number;
-  wardrobe: Wardrobe;
-  garment: "coat" | "jacket";
-  hair: "crop" | "bun" | "long";
-  pose: "handsBack" | "relaxed";
-  build: Build;
+  tint: number;
+  scale: number;
   walkPath?: { zFrom: number; zTo: number; speed: number };
 }) {
+  const { scene: proto, animations } = useGLTF(VISITOR_URL);
   const root = useRef<THREE.Group>(null);
-  const body = useRef<THREE.Group>(null);
-  const head = useRef<THREE.Group>(null);
-  const hipL = useRef<THREE.Group>(null);
-  const hipR = useRef<THREE.Group>(null);
-  const kneeL = useRef<THREE.Group>(null);
-  const kneeR = useRef<THREE.Group>(null);
-  const shL = useRef<THREE.Group>(null);
-  const shR = useRef<THREE.Group>(null);
-  const elL = useRef<THREE.Group>(null);
-  const elR = useRef<THREE.Group>(null);
   const heading = useRef(faceYaw);
 
-  useFrame((state) => {
-    const t = state.clock.elapsedTime + phase * 13.7;
+  const model = useMemo(() => {
+    const m = SkeletonUtils.clone(proto);
+    const outfit = OUTFITS[tint % OUTFITS.length];
+    m.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = false;
+        // skinned meshes move; never let the culler drop them mid-animation
+        mesh.frustumCulled = false;
+        const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
+        const name = (mat.name || "").toLowerCase();
+        if (name === "t-shirt") mat.color.set(outfit.tee);
+        else if (name === "short") mat.color.set(outfit.shorts);
+        else if (name === "hair" || name === "brown") mat.color.set(outfit.hair);
+        mesh.material = mat;
+      }
+    });
+    // skinned-mesh bounds lie before the skeleton poses them, so use the
+    // model's known native height: ~19.9 units -> 1.68 m
+    m.scale.setScalar(0.0845);
+    m.position.y = 0;
+    return m;
+  }, [proto, tint]);
+
+  const mixer = useMemo(() => new THREE.AnimationMixer(model), [model]);
+
+  useEffect(() => {
+    const want = mode === "walk" ? /^walking$/i : /^idle$/i;
+    const clip =
+      animations.find((a) => want.test(a.name)) ?? animations[0];
+    if (!clip) return;
+    const action = mixer.clipAction(clip);
+    action.reset();
+    // desynchronise the crowd so no two people move in lockstep
+    action.time = (phase * 1.37) % clip.duration;
+    action.timeScale = mode === "walk" ? 1.0 : 0.9 + (phase % 0.2);
+    action.play();
+    return () => {
+      action.stop();
+    };
+  }, [animations, mixer, mode, phase]);
+
+  useFrame((state, dt) => {
+    mixer.update(dt);
     const g = root.current;
     if (!g) return;
-
     if (mode === "walk" && walkPath) {
-      // ping-pong stroll between zFrom and zTo, turning smoothly at each end
+      const t = state.clock.elapsedTime + phase * 17.3;
       const span = Math.abs(walkPath.zTo - walkPath.zFrom);
       const outboundSign = Math.sign(walkPath.zTo - walkPath.zFrom);
       const p = (t * walkPath.speed) % (span * 2);
       const along = p < span ? p : span * 2 - p;
       const movingSign = p < span ? outboundSign : -outboundSign;
       g.position.set(position[0], 0, walkPath.zFrom + outboundSign * along);
-      const targetYaw = movingSign < 0 ? 0 : Math.PI; // faces −z at yaw 0
-      heading.current += (targetYaw - heading.current) * 0.06;
-      g.rotation.y = heading.current;
-
-      // gait with knee flexion and arm swing
-      const w = 2.9;
-      const s = Math.sin(t * w);
-      if (hipL.current) hipL.current.rotation.x = -s * 0.42;
-      if (hipR.current) hipR.current.rotation.x = s * 0.42;
-      if (kneeL.current)
-        kneeL.current.rotation.x = Math.max(0, Math.sin(t * w - 1.15)) * 0.62;
-      if (kneeR.current)
-        kneeR.current.rotation.x = Math.max(0, Math.sin(t * w + Math.PI - 1.15)) * 0.62;
-      if (shL.current) {
-        shL.current.rotation.x = s * 0.28;
-        shL.current.rotation.z = 0.09;
-      }
-      if (shR.current) {
-        shR.current.rotation.x = -s * 0.28;
-        shR.current.rotation.z = -0.09;
-      }
-      if (elL.current) elL.current.rotation.x = -0.3;
-      if (elR.current) elR.current.rotation.x = -0.3;
-      if (body.current) {
-        body.current.position.y = Math.abs(Math.cos(t * w)) * 0.028;
-        body.current.rotation.x = -0.05;
-        body.current.rotation.z = s * 0.02;
-      }
-      if (head.current) {
-        head.current.rotation.y = Math.sin(t * 0.5) * 0.25;
-        head.current.rotation.x = 0.03;
-      }
-      return;
-    }
-
-    // standing / talking: planted, breathing, weight on one hip
-    g.position.set(position[0], 0, position[2]);
-    g.rotation.y = faceYaw + Math.sin(t * 0.22) * 0.04;
-    if (body.current) {
-      body.current.position.y = Math.sin(t * 1.05) * 0.01;
-      body.current.rotation.z = 0.015 + Math.sin(t * 0.3) * 0.015;
-      body.current.rotation.x = 0.012;
-    }
-    if (hipL.current) hipL.current.rotation.x = 0.02;
-    if (hipR.current) hipR.current.rotation.x = -0.02;
-    if (kneeL.current) kneeL.current.rotation.x = 0.05;
-    if (kneeR.current) kneeR.current.rotation.x = 0.03;
-    if (head.current) {
-      head.current.rotation.y =
-        mode === "talk" ? Math.sin(t * 0.4) * 0.45 : Math.sin(t * 0.3) * 0.22;
-      head.current.rotation.x = 0.05 + Math.sin(t * 0.7) * 0.03;
-    }
-
-    const gesture = mode === "talk" && pose !== "handsBack";
-    if (pose === "handsBack") {
-      // classic gallery stance: hands clasped behind the back, arms in
-      if (shL.current) {
-        shL.current.rotation.x = 0.3;
-        shL.current.rotation.z = 0.24;
-      }
-      if (shR.current) {
-        shR.current.rotation.x = 0.3;
-        shR.current.rotation.z = -0.24;
-      }
-      if (elL.current) elL.current.rotation.x = 0.6;
-      if (elR.current) elR.current.rotation.x = 0.6;
+      const targetYaw = movingSign < 0 ? 0 : Math.PI;
+      heading.current += (targetYaw - heading.current) * 0.05;
+      g.rotation.y = heading.current + MODEL_YAW;
     } else {
-      if (shL.current) {
-        shL.current.rotation.x = -0.03;
-        shL.current.rotation.z = 0.09;
-      }
-      if (shR.current) shR.current.rotation.z = -0.09;
-      if (elL.current) elL.current.rotation.x = -0.16;
-      if (shR.current)
-        shR.current.rotation.x = gesture
-          ? -0.32 - Math.max(0, Math.sin(t * 0.85)) * 0.28
-          : -0.03;
-      if (elR.current)
-        elR.current.rotation.x = gesture ? -0.78 - Math.sin(t * 1.6) * 0.18 : -0.16;
+      g.position.set(position[0], 0, position[2]);
+      g.rotation.y = faceYaw + MODEL_YAW;
     }
   });
 
   return (
-    <group
-      ref={root}
-      position={position}
-      rotation={[0, faceYaw, 0]}
-      scale={[build.b, build.h, build.b]}
-    >
-      <group ref={body}>
-        {/* legs: thigh → knee → calf + shoe */}
-        {([-0.095, 0.095] as const).map((hx, i) => (
-          <group key={i} ref={i === 0 ? hipL : hipR} position={[hx, 0.92, 0]}>
-            <mesh position={[0, -0.235, 0]} castShadow>
-              <capsuleGeometry args={[0.072, 0.32, 4, 10]} />
-              <meshStandardMaterial color={wardrobe.pants} roughness={0.94} />
-            </mesh>
-            <group ref={i === 0 ? kneeL : kneeR} position={[0, -0.45, 0]}>
-              <mesh position={[0, -0.2, 0]} castShadow>
-                <capsuleGeometry args={[0.058, 0.3, 4, 10]} />
-                <meshStandardMaterial color={wardrobe.pants} roughness={0.94} />
-              </mesh>
-              <mesh position={[0, -0.44, -0.05]} castShadow>
-                <boxGeometry args={[0.1, 0.07, 0.26]} />
-                <meshStandardMaterial color="#15131a" roughness={0.5} />
-              </mesh>
-            </group>
-          </group>
-        ))}
-
-        {/* garment: knee-length coat, or jacket + trousers */}
-        {garment === "coat" ? (
-          <>
-            <mesh position={[0, 1.24, 0]} scale={[1.16, 1, 0.85]} castShadow>
-              <capsuleGeometry args={[0.16, 0.38, 6, 14]} />
-              <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
-            </mesh>
-            <mesh position={[0, 0.85, 0]} scale={[1.1, 1, 0.9]} castShadow>
-              <capsuleGeometry args={[0.168, 0.34, 6, 14]} />
-              <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
-            </mesh>
-          </>
-        ) : (
-          <>
-            <mesh position={[0, 1.26, 0]} scale={[1.16, 1, 0.85]} castShadow>
-              <capsuleGeometry args={[0.155, 0.36, 6, 14]} />
-              <meshStandardMaterial color={wardrobe.coat} roughness={0.88} />
-            </mesh>
-            <mesh position={[0, 0.95, 0]} scale={[1.05, 1, 0.9]} castShadow>
-              <capsuleGeometry args={[0.145, 0.14, 6, 12]} />
-              <meshStandardMaterial color={wardrobe.pants} roughness={0.94} />
-            </mesh>
-          </>
-        )}
-
-        {/* arms: upper → elbow → forearm + hand */}
-        {([-0.215, 0.215] as const).map((sx, i) => (
-          <group
-            key={i}
-            ref={i === 0 ? shL : shR}
-            position={[sx, 1.415, 0]}
-            rotation={[0, 0, sx < 0 ? 0.09 : -0.09]}
-          >
-            <mesh castShadow>
-              <sphereGeometry args={[0.066, 12, 10]} />
-              <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
-            </mesh>
-            <mesh position={[0, -0.155, 0]} castShadow>
-              <capsuleGeometry args={[0.052, 0.2, 4, 10]} />
-              <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
-            </mesh>
-            <group ref={i === 0 ? elL : elR} position={[0, -0.31, 0]}>
-              <mesh position={[0, -0.13, 0]} castShadow>
-                <capsuleGeometry args={[0.046, 0.17, 4, 10]} />
-                <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
-              </mesh>
-              <mesh position={[0, -0.27, 0]} castShadow>
-                <sphereGeometry args={[0.048, 10, 8]} />
-                <meshStandardMaterial color={wardrobe.skin} roughness={0.8} />
-              </mesh>
-            </group>
-          </group>
-        ))}
-
-        {/* neck, scarf, head */}
-        <mesh position={[0, 1.53, 0]} castShadow>
-          <cylinderGeometry args={[0.044, 0.054, 0.1, 10]} />
-          <meshStandardMaterial color={wardrobe.skin} roughness={0.8} />
-        </mesh>
-        {wardrobe.scarf && (
-          <mesh position={[0, 1.51, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.085, 0.032, 10, 20]} />
-            <meshStandardMaterial color={wardrobe.scarf} roughness={0.95} />
-          </mesh>
-        )}
-        <group ref={head} position={[0, 1.64, 0]}>
-          <mesh scale={[0.9, 1.05, 0.95]} castShadow>
-            <sphereGeometry args={[0.113, 20, 16]} />
-            <meshStandardMaterial color={wardrobe.skin} roughness={0.72} />
-          </mesh>
-          {/* nose + ears sell the silhouette */}
-          <mesh position={[0, -0.012, -0.104]} scale={[0.8, 1, 1.15]}>
-            <sphereGeometry args={[0.02, 8, 8]} />
-            <meshStandardMaterial color={wardrobe.skin} roughness={0.72} />
-          </mesh>
-          {([-0.104, 0.104] as const).map((ex, i) => (
-            <mesh key={i} position={[ex, -0.012, 0]} scale={[0.5, 1, 0.8]}>
-              <sphereGeometry args={[0.022, 8, 8]} />
-              <meshStandardMaterial color={wardrobe.skin} roughness={0.72} />
-            </mesh>
-          ))}
-          {hair === "crop" && (
-            <mesh position={[0, 0.045, 0.014]} scale={[0.94, 0.82, 0.99]}>
-              <sphereGeometry args={[0.115, 18, 14]} />
-              <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
-            </mesh>
-          )}
-          {hair === "bun" && (
-            <>
-              <mesh position={[0, 0.04, 0.016]} scale={[0.93, 0.8, 1]}>
-                <sphereGeometry args={[0.115, 18, 14]} />
-                <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
-              </mesh>
-              <mesh position={[0, 0.075, 0.105]}>
-                <sphereGeometry args={[0.042, 10, 8]} />
-                <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
-              </mesh>
-            </>
-          )}
-          {hair === "long" && (
-            <>
-              <mesh position={[0, 0.04, 0.016]} scale={[0.96, 0.85, 1.02]}>
-                <sphereGeometry args={[0.115, 18, 14]} />
-                <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
-              </mesh>
-              <mesh position={[0, -0.1, 0.07]} scale={[0.85, 1, 0.55]} castShadow>
-                <capsuleGeometry args={[0.095, 0.16, 4, 12]} />
-                <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
-              </mesh>
-            </>
-          )}
-        </group>
-      </group>
+    <group ref={root} position={position} scale={scale}>
+      <primitive object={model} />
     </group>
   );
 }
@@ -563,33 +374,27 @@ function Person({
 function Visitors({ layout, hung }: { layout: Layout; hung: { z: number }[] }) {
   const people = useMemo(() => {
     const out: JSX.Element[] = [];
-    // a pair discussing the 2nd piece of room 0 — one gestures, one listens
+    // a pair in conversation in front of the 2nd piece of room 0
     if (hung[1]) {
       const z = hung[1].z;
       out.push(
-        <Person
+        <Visitor
           key="talk-a"
-          mode="talk"
-          position={[-3.35, 0, z - 0.45]}
-          faceYaw={Math.PI / 2 + 0.38}
-          phase={0.2}
-          wardrobe={WARDROBES[0]}
-          garment="coat"
-          hair="long"
-          pose="relaxed"
-          build={{ h: 0.96, b: 0.96 }}
+          mode="idle"
+          position={[-3.35, 0, z - 0.5]}
+          faceYaw={Math.PI / 2 + 0.42}
+          phase={0.3}
+          tint={2}
+          scale={0.97}
         />,
-        <Person
+        <Visitor
           key="talk-b"
-          mode="talk"
-          position={[-3.55, 0, z + 0.52]}
-          faceYaw={Math.PI / 2 - 0.34}
-          phase={1.6}
-          wardrobe={WARDROBES[1]}
-          garment="jacket"
-          hair="crop"
-          pose="handsBack"
-          build={{ h: 1.03, b: 1.04 }}
+          mode="idle"
+          position={[-3.6, 0, z + 0.55]}
+          faceYaw={Math.PI / 2 - 0.38}
+          phase={2.1}
+          tint={1}
+          scale={1.02}
         />
       );
     }
@@ -598,52 +403,42 @@ function Visitors({ layout, hung }: { layout: Layout; hung: { z: number }[] }) {
       const idx = r * PER_ROOM + (r % 2 === 0 ? 2 : 0);
       const a = hung[idx];
       if (!a) continue;
-      const even = r % 2 === 0;
       out.push(
-        <Person
+        <Visitor
           key={`viewer-${r}`}
-          mode="stand"
-          position={[-3.6, 0, a.z + 0.1]}
+          mode="idle"
+          position={[-3.7, 0, a.z + 0.1]}
           faceYaw={Math.PI / 2}
-          phase={r * 2.3}
-          wardrobe={WARDROBES[(r + 1) % WARDROBES.length]}
-          garment={even ? "jacket" : "coat"}
-          hair={even ? "crop" : "bun"}
-          pose="handsBack"
-          build={{ h: even ? 1.02 : 0.98, b: even ? 1.03 : 0.95 }}
+          phase={r * 3.1}
+          tint={(r + 2) % OUTFITS.length}
+          scale={r % 2 === 0 ? 1.01 : 0.96}
         />
       );
     }
-    // two figures strolling the whole museum through the doorways
+    // two people strolling the whole museum through the doorways
     out.push(
-      <Person
+      <Visitor
         key="walk-1"
         mode="walk"
         position={[1.0, 0, 0]}
         faceYaw={0}
         phase={0}
-        wardrobe={WARDROBES[2]}
-        garment="jacket"
-        hair="crop"
-        pose="relaxed"
-        build={{ h: 1.04, b: 1.02 }}
-        walkPath={{ zFrom: FRONT_Z - 1.3, zTo: layout.backZ + 1.3, speed: 0.62 }}
+        tint={3}
+        scale={1.0}
+        walkPath={{ zFrom: FRONT_Z - 1.3, zTo: layout.backZ + 1.3, speed: 1.1 }}
       />
     );
     if (layout.rooms > 1) {
       out.push(
-        <Person
+        <Visitor
           key="walk-2"
           mode="walk"
           position={[-1.0, 0, 0]}
           faceYaw={Math.PI}
-          phase={4.2}
-          wardrobe={WARDROBES[3]}
-          garment="coat"
-          hair="long"
-          pose="relaxed"
-          build={{ h: 0.95, b: 0.94 }}
-          walkPath={{ zFrom: layout.backZ + 1.6, zTo: FRONT_Z - 1.6, speed: 0.5 }}
+          phase={4.6}
+          tint={4}
+          scale={0.95}
+          walkPath={{ zFrom: layout.backZ + 1.6, zTo: FRONT_Z - 1.6, speed: 0.95 }}
         />
       );
     }
@@ -936,6 +731,9 @@ function WalkControls({
   const tPitch = useRef(0);
   const dragging = useRef(false);
   const pos = useRef(new THREE.Vector3(-0.7, EYE, 3.6));
+  const navTarget = useRef<THREE.Vector3 | null>(null);
+  const downAt = useRef<{ x: number; y: number; t: number } | null>(null);
+  const lastTap = useRef<{ x: number; y: number; t: number } | null>(null);
 
   useEffect(() => {
     camera.rotation.order = "YXZ";
@@ -948,6 +746,7 @@ function WalkControls({
     const down = (e: PointerEvent) => {
       drag = { x: e.clientX, y: e.clientY };
       dragging.current = true;
+      downAt.current = { x: e.clientX, y: e.clientY, t: performance.now() };
     };
     const move = (e: PointerEvent) => {
       if (!drag) return;
@@ -957,9 +756,38 @@ function WalkControls({
       tYaw.current += dx * 0.0032;
       tPitch.current = THREE.MathUtils.clamp(tPitch.current + dy * 0.0028, -0.5, 0.45);
     };
-    const up = () => {
+    const up = (e: PointerEvent) => {
       drag = null;
       dragging.current = false;
+      const d = downAt.current;
+      downAt.current = null;
+      if (!d) return;
+      const now = performance.now();
+      const movedSq = (e.clientX - d.x) ** 2 + (e.clientY - d.y) ** 2;
+      if (movedSq > 81 || now - d.t > 400) return; // it was a drag, not a tap
+      const prev = lastTap.current;
+      lastTap.current = { x: e.clientX, y: e.clientY, t: now };
+      if (
+        prev &&
+        now - prev.t < 350 &&
+        (e.clientX - prev.x) ** 2 + (e.clientY - prev.y) ** 2 < 900
+      ) {
+        lastTap.current = null;
+        // double tap: raycast through the tap onto the floor plane
+        const rect = el.getBoundingClientRect();
+        const ndc = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(ndc, camera);
+        const hit = new THREE.Vector3();
+        if (
+          ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)
+        ) {
+          navTarget.current = hit.clone();
+        }
+      }
     };
     const key = (downEvt: boolean) => (e: KeyboardEvent) => {
       if (["w", "W", "ArrowUp"].includes(e.key)) moveRef.current.dir = downEvt ? 1 : 0;
@@ -1019,6 +847,50 @@ function WalkControls({
         }
       }
       p.set(x, EYE, z);
+    }
+
+    // double-tap glide
+    const nav = navTarget.current;
+    if (m.dir !== 0 || Math.abs(m.impulse) > 0.02) navTarget.current = null;
+    else if (nav && active) {
+      const p = pos.current;
+      const dx = nav.x - p.x;
+      const dz = nav.z - p.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 0.22) {
+        navTarget.current = null;
+      } else {
+        const step = Math.min(2.9 * dt, dist);
+        const x = THREE.MathUtils.clamp(
+          p.x + (dx / dist) * step,
+          -HALF_W + 0.55,
+          HALF_W - 0.55
+        );
+        let z = THREE.MathUtils.clamp(
+          p.z + (dz / dist) * step,
+          layout.backZ + 0.7,
+          FRONT_Z - 0.7
+        );
+        let blockedZ = false;
+        for (const wz of layout.dividers) {
+          const crossing = (p.z - wz) * (z - wz) < 0 || Math.abs(z - wz) < 0.25;
+          if (crossing && Math.abs(x) > DOOR_HALF - 0.18) {
+            z = p.z;
+            blockedZ = true;
+            break;
+          }
+        }
+        // stop trying if pinned against a wall with nowhere to slide
+        if (blockedZ && Math.abs(x - p.x) < 1e-4) navTarget.current = null;
+        p.set(x, EYE, z);
+        // gently face the direction of travel on longer glides
+        if (dist > 1.6) {
+          const desired = Math.atan2(dx, -dz);
+          let dYawA = desired - tYaw.current;
+          dYawA = Math.atan2(Math.sin(dYawA), Math.cos(dYawA));
+          tYaw.current += dYawA * Math.min(1, dt * 1.4);
+        }
+      }
     }
 
     camera.position.copy(pos.current);
@@ -1106,7 +978,9 @@ export default function Museum({
           <OceanWall layout={layout} />
           <Ocean />
           <Boats />
-          <Visitors layout={layout} hung={hung} />
+          <Suspense fallback={null}>
+            <Visitors layout={layout} hung={hung} />
+          </Suspense>
 
           <Suspense fallback={null}>
             {hung.map((a) => (
