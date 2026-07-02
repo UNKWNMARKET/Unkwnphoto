@@ -50,7 +50,7 @@ export default function App() {
           </div>
           {photos.length > 0 && (
             <div className="hud-hint" aria-hidden="true">
-              drag to look · hold ▲ to walk the museum
+              drag to look · double-tap the floor to walk
             </div>
           )}
         </div>
