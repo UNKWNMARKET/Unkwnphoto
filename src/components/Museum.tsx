@@ -268,14 +268,21 @@ interface Wardrobe {
   pants: string;
   skin: string;
   hair: string;
+  scarf?: string;
 }
+
 const WARDROBES: Wardrobe[] = [
-  { coat: "#2b2d36", pants: "#1b1c21", skin: "#c9a181", hair: "#241d16" },
-  { coat: "#6b5230", pants: "#26221d", skin: "#b98d6d", hair: "#171310" },
-  { coat: "#39414e", pants: "#20242b", skin: "#d4ab8a", hair: "#3a2c1c" },
-  { coat: "#5d5a52", pants: "#211f1c", skin: "#a97c5f", hair: "#100d0b" },
-  { coat: "#403036", pants: "#1d181b", skin: "#cfa585", hair: "#2b2019" }
+  { coat: "#8a6f4d", pants: "#2a2622", skin: "#c9a181", hair: "#3b2a1a", scarf: "#7a2e2e" },
+  { coat: "#33363e", pants: "#1d1f24", skin: "#b98d6d", hair: "#17130f" },
+  { coat: "#4b5563", pants: "#26292f", skin: "#d8b090", hair: "#5a4630" },
+  { coat: "#565c46", pants: "#2b271f", skin: "#8d6748", hair: "#0f0d0b", scarf: "#b58a3c" },
+  { coat: "#6e675d", pants: "#211f1c", skin: "#c39a77", hair: "#2e1f18" }
 ];
+
+interface Build {
+  h: number; // height multiplier
+  b: number; // breadth multiplier
+}
 
 function Person({
   mode,
@@ -283,6 +290,10 @@ function Person({
   faceYaw,
   phase,
   wardrobe,
+  garment,
+  hair,
+  pose,
+  build,
   walkPath
 }: {
   mode: "stand" | "talk" | "walk";
@@ -290,15 +301,23 @@ function Person({
   faceYaw: number;
   phase: number;
   wardrobe: Wardrobe;
+  garment: "coat" | "jacket";
+  hair: "crop" | "bun" | "long";
+  pose: "handsBack" | "relaxed";
+  build: Build;
   walkPath?: { zFrom: number; zTo: number; speed: number };
 }) {
   const root = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
-  const legL = useRef<THREE.Group>(null);
-  const legR = useRef<THREE.Group>(null);
-  const armL = useRef<THREE.Group>(null);
-  const armR = useRef<THREE.Group>(null);
+  const hipL = useRef<THREE.Group>(null);
+  const hipR = useRef<THREE.Group>(null);
+  const kneeL = useRef<THREE.Group>(null);
+  const kneeR = useRef<THREE.Group>(null);
+  const shL = useRef<THREE.Group>(null);
+  const shR = useRef<THREE.Group>(null);
+  const elL = useRef<THREE.Group>(null);
+  const elR = useRef<THREE.Group>(null);
   const heading = useRef(faceYaw);
 
   useFrame((state) => {
@@ -317,145 +336,269 @@ function Person({
       const targetYaw = movingSign < 0 ? 0 : Math.PI; // faces −z at yaw 0
       heading.current += (targetYaw - heading.current) * 0.06;
       g.rotation.y = heading.current;
-      // gait
-      const step = Math.sin(t * 2.9);
-      if (legL.current) legL.current.rotation.x = step * 0.38;
-      if (legR.current) legR.current.rotation.x = -step * 0.38;
-      if (armL.current) armL.current.rotation.x = -step * 0.24;
-      if (armR.current) armR.current.rotation.x = step * 0.24;
-      if (body.current) body.current.position.y = Math.abs(Math.cos(t * 2.9)) * 0.028;
-      if (head.current) head.current.rotation.y = Math.sin(t * 0.5) * 0.25;
+
+      // gait with knee flexion and arm swing
+      const w = 2.9;
+      const s = Math.sin(t * w);
+      if (hipL.current) hipL.current.rotation.x = -s * 0.42;
+      if (hipR.current) hipR.current.rotation.x = s * 0.42;
+      if (kneeL.current)
+        kneeL.current.rotation.x = Math.max(0, Math.sin(t * w - 1.15)) * 0.62;
+      if (kneeR.current)
+        kneeR.current.rotation.x = Math.max(0, Math.sin(t * w + Math.PI - 1.15)) * 0.62;
+      if (shL.current) {
+        shL.current.rotation.x = s * 0.28;
+        shL.current.rotation.z = 0.09;
+      }
+      if (shR.current) {
+        shR.current.rotation.x = -s * 0.28;
+        shR.current.rotation.z = -0.09;
+      }
+      if (elL.current) elL.current.rotation.x = -0.3;
+      if (elR.current) elR.current.rotation.x = -0.3;
+      if (body.current) {
+        body.current.position.y = Math.abs(Math.cos(t * w)) * 0.028;
+        body.current.rotation.x = -0.05;
+        body.current.rotation.z = s * 0.02;
+      }
+      if (head.current) {
+        head.current.rotation.y = Math.sin(t * 0.5) * 0.25;
+        head.current.rotation.x = 0.03;
+      }
       return;
     }
 
-    // standing / talking: planted feet, weight shift, living head
+    // standing / talking: planted, breathing, weight on one hip
     g.position.set(position[0], 0, position[2]);
-    g.rotation.y = faceYaw + Math.sin(t * 0.22) * 0.05;
+    g.rotation.y = faceYaw + Math.sin(t * 0.22) * 0.04;
     if (body.current) {
-      body.current.position.y = Math.sin(t * 1.05) * 0.012;
-      body.current.rotation.z = Math.sin(t * 0.3) * 0.02;
+      body.current.position.y = Math.sin(t * 1.05) * 0.01;
+      body.current.rotation.z = 0.015 + Math.sin(t * 0.3) * 0.015;
+      body.current.rotation.x = 0.012;
     }
-    if (legL.current) legL.current.rotation.x = 0;
-    if (legR.current) legR.current.rotation.x = 0;
+    if (hipL.current) hipL.current.rotation.x = 0.02;
+    if (hipR.current) hipR.current.rotation.x = -0.02;
+    if (kneeL.current) kneeL.current.rotation.x = 0.05;
+    if (kneeR.current) kneeR.current.rotation.x = 0.03;
     if (head.current) {
       head.current.rotation.y =
-        mode === "talk"
-          ? Math.sin(t * 0.4) * 0.45 // turning between the art and their companion
-          : Math.sin(t * 0.3) * 0.22;
-      head.current.rotation.x = 0.06 + Math.sin(t * 0.7) * 0.03;
+        mode === "talk" ? Math.sin(t * 0.4) * 0.45 : Math.sin(t * 0.3) * 0.22;
+      head.current.rotation.x = 0.05 + Math.sin(t * 0.7) * 0.03;
     }
-    if (armR.current) {
-      // occasional gesture while talking
-      armR.current.rotation.x =
-        mode === "talk" ? -0.15 + Math.max(0, Math.sin(t * 0.9)) * -0.45 : -0.04;
+
+    const gesture = mode === "talk" && pose !== "handsBack";
+    if (pose === "handsBack") {
+      // classic gallery stance: hands clasped behind the back, arms in
+      if (shL.current) {
+        shL.current.rotation.x = 0.3;
+        shL.current.rotation.z = 0.24;
+      }
+      if (shR.current) {
+        shR.current.rotation.x = 0.3;
+        shR.current.rotation.z = -0.24;
+      }
+      if (elL.current) elL.current.rotation.x = 0.6;
+      if (elR.current) elR.current.rotation.x = 0.6;
+    } else {
+      if (shL.current) {
+        shL.current.rotation.x = -0.03;
+        shL.current.rotation.z = 0.09;
+      }
+      if (shR.current) shR.current.rotation.z = -0.09;
+      if (elL.current) elL.current.rotation.x = -0.16;
+      if (shR.current)
+        shR.current.rotation.x = gesture
+          ? -0.32 - Math.max(0, Math.sin(t * 0.85)) * 0.28
+          : -0.03;
+      if (elR.current)
+        elR.current.rotation.x = gesture ? -0.78 - Math.sin(t * 1.6) * 0.18 : -0.16;
     }
-    if (armL.current) armL.current.rotation.x = -0.04;
   });
 
   return (
-    <group ref={root} position={position} rotation={[0, faceYaw, 0]}>
+    <group
+      ref={root}
+      position={position}
+      rotation={[0, faceYaw, 0]}
+      scale={[build.b, build.h, build.b]}
+    >
       <group ref={body}>
-        {/* legs, pivoted at the hip, with shoes */}
-        {([-0.11, 0.11] as const).map((hx, i) => (
-          <group key={i} ref={i === 0 ? legL : legR} position={[hx, 0.92, 0]}>
-            <mesh position={[0, -0.44, 0]} castShadow>
-              <capsuleGeometry args={[0.07, 0.66, 4, 10]} />
-              <meshStandardMaterial color={wardrobe.pants} roughness={0.92} />
+        {/* legs: thigh → knee → calf + shoe */}
+        {([-0.095, 0.095] as const).map((hx, i) => (
+          <group key={i} ref={i === 0 ? hipL : hipR} position={[hx, 0.92, 0]}>
+            <mesh position={[0, -0.235, 0]} castShadow>
+              <capsuleGeometry args={[0.072, 0.32, 4, 10]} />
+              <meshStandardMaterial color={wardrobe.pants} roughness={0.94} />
             </mesh>
-            <mesh position={[0, -0.885, -0.045]} castShadow>
-              <boxGeometry args={[0.11, 0.07, 0.26]} />
-              <meshStandardMaterial color="#141216" roughness={0.55} />
-            </mesh>
+            <group ref={i === 0 ? kneeL : kneeR} position={[0, -0.45, 0]}>
+              <mesh position={[0, -0.2, 0]} castShadow>
+                <capsuleGeometry args={[0.058, 0.3, 4, 10]} />
+                <meshStandardMaterial color={wardrobe.pants} roughness={0.94} />
+              </mesh>
+              <mesh position={[0, -0.44, -0.05]} castShadow>
+                <boxGeometry args={[0.1, 0.07, 0.26]} />
+                <meshStandardMaterial color="#15131a" roughness={0.5} />
+              </mesh>
+            </group>
           </group>
         ))}
-        {/* hips join the legs to the coat */}
-        <mesh position={[0, 0.93, 0]} castShadow>
-          <capsuleGeometry args={[0.15, 0.1, 4, 12]} />
-          <meshStandardMaterial color={wardrobe.pants} roughness={0.92} />
-        </mesh>
-        {/* torso — slightly broader at the shoulders */}
-        <mesh position={[0, 1.19, 0]} scale={[1.15, 1, 0.82]} castShadow>
-          <capsuleGeometry args={[0.16, 0.46, 6, 14]} />
-          <meshStandardMaterial color={wardrobe.coat} roughness={0.88} />
-        </mesh>
-        {/* arms, pivoted at the shoulder */}
-        <group ref={armL} position={[-0.245, 1.4, 0]} rotation={[0, 0, 0.1]}>
-          <mesh position={[0, -0.3, 0]} castShadow>
-            <capsuleGeometry args={[0.05, 0.48, 4, 8]} />
-            <meshStandardMaterial color={wardrobe.coat} roughness={0.88} />
-          </mesh>
-          <mesh position={[0, -0.58, 0]} castShadow>
-            <sphereGeometry args={[0.045, 10, 8]} />
-            <meshStandardMaterial color={wardrobe.skin} roughness={0.8} />
-          </mesh>
-        </group>
-        <group ref={armR} position={[0.245, 1.4, 0]} rotation={[0, 0, -0.1]}>
-          <mesh position={[0, -0.3, 0]} castShadow>
-            <capsuleGeometry args={[0.05, 0.48, 4, 8]} />
-            <meshStandardMaterial color={wardrobe.coat} roughness={0.88} />
-          </mesh>
-          <mesh position={[0, -0.58, 0]} castShadow>
-            <sphereGeometry args={[0.045, 10, 8]} />
-            <meshStandardMaterial color={wardrobe.skin} roughness={0.8} />
-          </mesh>
-        </group>
-        {/* neck + head + hair */}
+
+        {/* garment: knee-length coat, or jacket + trousers */}
+        {garment === "coat" ? (
+          <>
+            <mesh position={[0, 1.24, 0]} scale={[1.16, 1, 0.85]} castShadow>
+              <capsuleGeometry args={[0.16, 0.38, 6, 14]} />
+              <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
+            </mesh>
+            <mesh position={[0, 0.85, 0]} scale={[1.1, 1, 0.9]} castShadow>
+              <capsuleGeometry args={[0.168, 0.34, 6, 14]} />
+              <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
+            </mesh>
+          </>
+        ) : (
+          <>
+            <mesh position={[0, 1.26, 0]} scale={[1.16, 1, 0.85]} castShadow>
+              <capsuleGeometry args={[0.155, 0.36, 6, 14]} />
+              <meshStandardMaterial color={wardrobe.coat} roughness={0.88} />
+            </mesh>
+            <mesh position={[0, 0.95, 0]} scale={[1.05, 1, 0.9]} castShadow>
+              <capsuleGeometry args={[0.145, 0.14, 6, 12]} />
+              <meshStandardMaterial color={wardrobe.pants} roughness={0.94} />
+            </mesh>
+          </>
+        )}
+
+        {/* arms: upper → elbow → forearm + hand */}
+        {([-0.215, 0.215] as const).map((sx, i) => (
+          <group
+            key={i}
+            ref={i === 0 ? shL : shR}
+            position={[sx, 1.415, 0]}
+            rotation={[0, 0, sx < 0 ? 0.09 : -0.09]}
+          >
+            <mesh castShadow>
+              <sphereGeometry args={[0.066, 12, 10]} />
+              <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
+            </mesh>
+            <mesh position={[0, -0.155, 0]} castShadow>
+              <capsuleGeometry args={[0.052, 0.2, 4, 10]} />
+              <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
+            </mesh>
+            <group ref={i === 0 ? elL : elR} position={[0, -0.31, 0]}>
+              <mesh position={[0, -0.13, 0]} castShadow>
+                <capsuleGeometry args={[0.046, 0.17, 4, 10]} />
+                <meshStandardMaterial color={wardrobe.coat} roughness={0.9} />
+              </mesh>
+              <mesh position={[0, -0.27, 0]} castShadow>
+                <sphereGeometry args={[0.048, 10, 8]} />
+                <meshStandardMaterial color={wardrobe.skin} roughness={0.8} />
+              </mesh>
+            </group>
+          </group>
+        ))}
+
+        {/* neck, scarf, head */}
         <mesh position={[0, 1.53, 0]} castShadow>
-          <cylinderGeometry args={[0.045, 0.055, 0.09, 10]} />
+          <cylinderGeometry args={[0.044, 0.054, 0.1, 10]} />
           <meshStandardMaterial color={wardrobe.skin} roughness={0.8} />
         </mesh>
+        {wardrobe.scarf && (
+          <mesh position={[0, 1.51, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.085, 0.032, 10, 20]} />
+            <meshStandardMaterial color={wardrobe.scarf} roughness={0.95} />
+          </mesh>
+        )}
         <group ref={head} position={[0, 1.64, 0]}>
-          <mesh scale={[0.92, 1.06, 0.96]} castShadow>
-            <sphereGeometry args={[0.112, 18, 16]} />
-            <meshStandardMaterial color={wardrobe.skin} roughness={0.75} />
+          <mesh scale={[0.9, 1.05, 0.95]} castShadow>
+            <sphereGeometry args={[0.113, 20, 16]} />
+            <meshStandardMaterial color={wardrobe.skin} roughness={0.72} />
           </mesh>
-          {/* hair cap sits at the back of the head (face looks along −z) */}
-          <mesh position={[0, 0.042, 0.016]} scale={[0.98, 0.85, 1.02]}>
-            <sphereGeometry args={[0.112, 18, 14]} />
-            <meshStandardMaterial color={wardrobe.hair} roughness={0.95} />
+          {/* nose + ears sell the silhouette */}
+          <mesh position={[0, -0.012, -0.104]} scale={[0.8, 1, 1.15]}>
+            <sphereGeometry args={[0.02, 8, 8]} />
+            <meshStandardMaterial color={wardrobe.skin} roughness={0.72} />
           </mesh>
+          {([-0.104, 0.104] as const).map((ex, i) => (
+            <mesh key={i} position={[ex, -0.012, 0]} scale={[0.5, 1, 0.8]}>
+              <sphereGeometry args={[0.022, 8, 8]} />
+              <meshStandardMaterial color={wardrobe.skin} roughness={0.72} />
+            </mesh>
+          ))}
+          {hair === "crop" && (
+            <mesh position={[0, 0.045, 0.014]} scale={[0.94, 0.82, 0.99]}>
+              <sphereGeometry args={[0.115, 18, 14]} />
+              <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
+            </mesh>
+          )}
+          {hair === "bun" && (
+            <>
+              <mesh position={[0, 0.04, 0.016]} scale={[0.93, 0.8, 1]}>
+                <sphereGeometry args={[0.115, 18, 14]} />
+                <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
+              </mesh>
+              <mesh position={[0, 0.075, 0.105]}>
+                <sphereGeometry args={[0.042, 10, 8]} />
+                <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
+              </mesh>
+            </>
+          )}
+          {hair === "long" && (
+            <>
+              <mesh position={[0, 0.04, 0.016]} scale={[0.96, 0.85, 1.02]}>
+                <sphereGeometry args={[0.115, 18, 14]} />
+                <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
+              </mesh>
+              <mesh position={[0, -0.1, 0.07]} scale={[0.85, 1, 0.55]} castShadow>
+                <capsuleGeometry args={[0.095, 0.16, 4, 12]} />
+                <meshStandardMaterial color={wardrobe.hair} roughness={0.96} />
+              </mesh>
+            </>
+          )}
         </group>
       </group>
     </group>
   );
 }
 
-function Visitors({
-  layout,
-  hung
-}: {
-  layout: Layout;
-  hung: { z: number }[];
-}) {
+function Visitors({ layout, hung }: { layout: Layout; hung: { z: number }[] }) {
   const people = useMemo(() => {
     const out: JSX.Element[] = [];
-    // a chatting pair in front of the 2nd piece of room 0
+    // a pair discussing the 2nd piece of room 0 — one gestures, one listens
     if (hung[1]) {
       const z = hung[1].z;
       out.push(
         <Person
           key="talk-a"
           mode="talk"
-          position={[-3.4, 0, z - 0.42]}
-          faceYaw={Math.PI / 2 + 0.32}
+          position={[-3.35, 0, z - 0.45]}
+          faceYaw={Math.PI / 2 + 0.38}
           phase={0.2}
           wardrobe={WARDROBES[0]}
+          garment="coat"
+          hair="long"
+          pose="relaxed"
+          build={{ h: 0.96, b: 0.96 }}
         />,
         <Person
           key="talk-b"
           mode="talk"
-          position={[-3.55, 0, z + 0.5]}
-          faceYaw={Math.PI / 2 - 0.3}
-          phase={1.4}
+          position={[-3.55, 0, z + 0.52]}
+          faceYaw={Math.PI / 2 - 0.34}
+          phase={1.6}
           wardrobe={WARDROBES[1]}
+          garment="jacket"
+          hair="crop"
+          pose="handsBack"
+          build={{ h: 1.03, b: 1.04 }}
         />
       );
     }
-    // a lone viewer per deeper room, alternating pieces
+    // a lone contemplative viewer in each deeper room
     for (let r = 1; r < layout.rooms; r++) {
       const idx = r * PER_ROOM + (r % 2 === 0 ? 2 : 0);
       const a = hung[idx];
       if (!a) continue;
+      const even = r % 2 === 0;
       out.push(
         <Person
           key={`viewer-${r}`}
@@ -463,7 +606,11 @@ function Visitors({
           position={[-3.6, 0, a.z + 0.1]}
           faceYaw={Math.PI / 2}
           phase={r * 2.3}
-          wardrobe={WARDROBES[(r + 2) % WARDROBES.length]}
+          wardrobe={WARDROBES[(r + 1) % WARDROBES.length]}
+          garment={even ? "jacket" : "coat"}
+          hair={even ? "crop" : "bun"}
+          pose="handsBack"
+          build={{ h: even ? 1.02 : 0.98, b: even ? 1.03 : 0.95 }}
         />
       );
     }
@@ -476,6 +623,10 @@ function Visitors({
         faceYaw={0}
         phase={0}
         wardrobe={WARDROBES[2]}
+        garment="jacket"
+        hair="crop"
+        pose="relaxed"
+        build={{ h: 1.04, b: 1.02 }}
         walkPath={{ zFrom: FRONT_Z - 1.3, zTo: layout.backZ + 1.3, speed: 0.62 }}
       />
     );
@@ -487,14 +638,17 @@ function Visitors({
           position={[-1.0, 0, 0]}
           faceYaw={Math.PI}
           phase={4.2}
-          wardrobe={WARDROBES[4]}
+          wardrobe={WARDROBES[3]}
+          garment="coat"
+          hair="long"
+          pose="relaxed"
+          build={{ h: 0.95, b: 0.94 }}
           walkPath={{ zFrom: layout.backZ + 1.6, zTo: FRONT_Z - 1.6, speed: 0.5 }}
         />
       );
     }
     return out;
   }, [layout, hung]);
-
   return <>{people}</>;
 }
 
@@ -776,10 +930,11 @@ function WalkControls({
   layout: Layout;
 }) {
   const { camera, gl } = useThree();
-  const yaw = useRef(0.4); // 0 faces down the hall (-z); + turns right
-  const pitch = useRef(0.02);
-  const tYaw = useRef(0.4);
-  const tPitch = useRef(0.02);
+  const yaw = useRef(0); // 0 faces straight down the hall (-z); + turns right
+  const pitch = useRef(0);
+  const tYaw = useRef(0);
+  const tPitch = useRef(0);
+  const dragging = useRef(false);
   const pos = useRef(new THREE.Vector3(-0.7, EYE, 3.6));
 
   useEffect(() => {
@@ -792,6 +947,7 @@ function WalkControls({
     let drag: { x: number; y: number } | null = null;
     const down = (e: PointerEvent) => {
       drag = { x: e.clientX, y: e.clientY };
+      dragging.current = true;
     };
     const move = (e: PointerEvent) => {
       if (!drag) return;
@@ -803,6 +959,7 @@ function WalkControls({
     };
     const up = () => {
       drag = null;
+      dragging.current = false;
     };
     const key = (downEvt: boolean) => (e: KeyboardEvent) => {
       if (["w", "W", "ArrowUp"].includes(e.key)) moveRef.current.dir = downEvt ? 1 : 0;
@@ -832,8 +989,11 @@ function WalkControls({
   useFrame((state, dt) => {
     if (!active) {
       const t = state.clock.elapsedTime;
-      tYaw.current = 0.45 + Math.sin(t * 0.1) * 0.25;
-      tPitch.current = 0.02;
+      tYaw.current = Math.sin(t * 0.08) * 0.12;
+      tPitch.current = 0;
+    } else if (!dragging.current) {
+      // ease the view back to level so the room never lingers tilted
+      tPitch.current += (0 - tPitch.current) * Math.min(1, dt * 0.4);
     }
     const k = 1 - Math.exp(-8 * dt);
     yaw.current += (tYaw.current - yaw.current) * k;
@@ -874,7 +1034,7 @@ function ResponsiveCamera() {
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
     const aspect = size.width / size.height;
-    cam.fov = aspect < 1 ? Math.min(88, 56 / Math.max(aspect, 0.52)) : 56;
+    cam.fov = aspect < 1 ? Math.min(76, 56 / Math.max(aspect, 0.58)) : 56;
     cam.updateProjectionMatrix();
   }, [camera, size.width, size.height]);
   return null;

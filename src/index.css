@@ -167,7 +167,7 @@ body {
 /* ---------- First-person tour controls ---------- */
 .tour-controls {
   position: fixed;
-  bottom: clamp(1.4rem, 5vh, 2.8rem);
+  bottom: clamp(3.4rem, 9vh, 5.4rem);
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
