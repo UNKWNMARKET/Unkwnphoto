@@ -1,46 +1,29 @@
 {
   "name": "unkwnphoto",
   "private": true,
-  "version": "0.1.0",
-  "description": "Unkwnphoto — immersive photography portfolio with a cosmic entry experience.",
+  "version": "1.0.0",
+  "description": "Unkwnphoto — a photography portfolio with private album management.",
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -k -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
-    "dev:server": "tsx watch server/index.ts",
-    "dev:client": "vite",
-    "build": "tsc -p tsconfig.server.json && vite build",
-    "start": "node dist-server/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.api.json --noEmit"
   },
   "dependencies": {
-    "@pmndrs/assets": "^1.7.0",
-    "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^8.18.0",
-    "@react-three/postprocessing": "^2.19.1",
     "@vercel/blob": "^0.27.3",
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "multer": "^1.4.5-lts.1",
-    "postprocessing": "^6.39.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "three": "^0.169.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/multer": "^1.4.11",
     "@types/node": "^22.5.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@types/three": "^0.169.0",
     "@vercel/node": "^5.8.17",
     "@vitejs/plugin-react": "^4.3.1",
-    "concurrently": "^9.0.1",
-    "tsx": "^4.19.1",
     "typescript": "^5.6.2",
     "vite": "^5.4.6"
   }

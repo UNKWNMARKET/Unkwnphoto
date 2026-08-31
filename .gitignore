@@ -1,17 +1,8 @@
 node_modules/
 dist/
-dist-server/
 *.log
-
-# Uploaded photos and their metadata are runtime data, not source.
-uploads/*
-!uploads/.gitkeep
-data/photos.json
 
 .DS_Store
 .env
 .env.local
-
-# Python cache
-__pycache__/
-*.pyc
+.vercel
