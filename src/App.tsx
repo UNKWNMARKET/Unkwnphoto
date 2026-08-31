@@ -68,12 +68,28 @@ export default function App() {
     [album, library.photos]
   );
 
-  // Keep the tab title meaningful as you move around.
+  const isAdmin = route.name === "admin";
+
+  // Keep the tab title, the canonical URL and indexing meaningful as you move
+  // around — the app never reloads, so none of this updates on its own.
   useEffect(() => {
     document.title = album ? `${album.name} — Unkwnphoto` : "Unkwnphoto";
-  }, [album]);
 
-  const isAdmin = route.name === "admin";
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (canonical) canonical.href = new URL(path, canonical.href).href;
+
+    // The admin page is unlisted rather than forbidden: it isn't named in
+    // robots.txt, which would only advertise it, so tell crawlers here.
+    const ROBOTS_ID = "robots-meta";
+    document.getElementById(ROBOTS_ID)?.remove();
+    if (isAdmin) {
+      const meta = document.createElement("meta");
+      meta.id = ROBOTS_ID;
+      meta.name = "robots";
+      meta.content = "noindex, nofollow";
+      document.head.appendChild(meta);
+    }
+  }, [album, path, isAdmin]);
 
   return (
     <div className={`app${isAdmin ? " app-admin" : ""}`}>
