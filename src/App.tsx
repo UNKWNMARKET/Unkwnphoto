@@ -12,6 +12,7 @@ const EMPTY: Library = { version: 2, albums: [], photos: [] };
 export default function App() {
   const [library, setLibrary] = useState<Library>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [session, setSession] = useState<SessionState>({
     authenticated: false,
     configured: false
@@ -21,15 +22,25 @@ export default function App() {
   const route = parseRoute(path);
 
   const refresh = useCallback(async () => {
-    setLibrary(await getLibrary());
+    try {
+      setLibrary(await getLibrary());
+      setLoadError(null);
+    } catch (err) {
+      setLoadError((err as Error).message);
+      throw err;
+    }
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [lib, sess] = await Promise.all([getLibrary(), getSession()]);
+      const [lib, sess] = await Promise.all([
+        getLibrary().catch((err: Error) => err),
+        getSession()
+      ]);
       if (cancelled) return;
-      setLibrary(lib);
+      if (lib instanceof Error) setLoadError(lib.message);
+      else setLibrary(lib);
       setSession(sess);
       setLoading(false);
     })();
@@ -80,7 +91,12 @@ export default function App() {
 
       <main className="site-main">
         {route.name === "home" && (
-          <Home albums={albums} photos={library.photos} loading={loading} />
+          <Home
+            albums={albums}
+            photos={library.photos}
+            loading={loading}
+            error={loadError}
+          />
         )}
 
         {route.name === "album" &&

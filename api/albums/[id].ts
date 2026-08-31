@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireAuth } from "../_lib/auth";
-import { deletePhotoFiles, readLibrary, writeLibrary } from "../_lib/store";
+import {
+  deletePhotoFiles,
+  loadLibrary,
+  storageErrorResponse,
+  writeLibrary
+} from "../_lib/store";
 
 // PATCH  /api/albums/:id  { name?, description?, coverPhotoId?, order? }
 // DELETE /api/albums/:id  — also removes the album's photos and their files.
@@ -16,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireAuth(req, res)) return;
 
   try {
-    const library = await readLibrary();
+    const { library, etag } = await loadLibrary();
     const index = library.albums.findIndex((a) => a.id === id);
     if (index < 0) return res.status(404).json({ error: "Album not found." });
 
@@ -49,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         album.order = order;
       }
 
-      await writeLibrary(library);
+      await writeLibrary(library, etag);
       return res.status(200).json(album);
     }
 
@@ -59,10 +64,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     library.photos = library.photos.filter((p) => p.albumId !== id);
     // Write the index first: if file deletion half-fails we're left with
     // orphaned blobs rather than photos pointing at files that are gone.
-    await writeLibrary(library);
+    await writeLibrary(library, etag);
     await deletePhotoFiles(doomed);
     return res.status(204).end();
-  } catch {
-    return res.status(500).json({ error: "Couldn't update the album." });
+  } catch (err) {
+    const { status, error } = storageErrorResponse(err);
+    return res.status(status).json({ error });
   }
 }

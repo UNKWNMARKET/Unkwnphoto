@@ -1,7 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
 import { requireAuth } from "./_lib/auth";
-import { nextOrder, readLibrary, writeLibrary, type Album } from "./_lib/store";
+import {
+  loadLibrary,
+  nextOrder,
+  storageErrorResponse,
+  writeLibrary,
+  type Album
+} from "./_lib/store";
 
 // POST /api/albums { name, description? } -> create a named album. Owner only.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -19,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const library = await readLibrary();
+    const { library, etag } = await loadLibrary();
     const album: Album = {
       id: randomUUID(),
       name: trimmed,
@@ -28,12 +34,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       createdAt: new Date().toISOString()
     };
     library.albums.push(album);
-    await writeLibrary(library);
+    await writeLibrary(library, etag);
     return res.status(201).json(album);
-  } catch {
-    return res.status(500).json({
-      error:
-        "Couldn't save the album. Check that a Vercel Blob store is connected to this project."
-    });
+  } catch (err) {
+    const { status, error } = storageErrorResponse(err);
+    return res.status(status).json({ error });
   }
 }

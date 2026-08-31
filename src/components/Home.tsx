@@ -5,6 +5,7 @@ interface HomeProps {
   albums: Album[];
   photos: Photo[];
   loading: boolean;
+  error: string | null;
 }
 
 function coverFor(album: Album, photos: Photo[]): Photo | undefined {
@@ -12,8 +13,19 @@ function coverFor(album: Album, photos: Photo[]): Photo | undefined {
   return inAlbum.find((p) => p.id === album.coverPhotoId) ?? inAlbum[0];
 }
 
-export default function Home({ albums, photos, loading }: HomeProps) {
+export default function Home({ albums, photos, loading, error }: HomeProps) {
   if (loading) return <div className="loading" aria-live="polite" />;
+
+  // Never present a storage failure as an empty portfolio — that would read
+  // as though the work had been lost.
+  if (error) {
+    return (
+      <div className="empty" role="alert">
+        <p className="empty-title">The photographs couldn't be loaded.</p>
+        <p className="empty-body">{error}</p>
+      </div>
+    );
+  }
 
   if (!albums.length) {
     return (

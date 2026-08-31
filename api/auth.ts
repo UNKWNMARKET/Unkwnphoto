@@ -4,7 +4,8 @@ import {
   clearSession,
   isAuthenticated,
   issueSession,
-  passwordMatches
+  passwordMatches,
+  sameOrigin
 } from "./_lib/auth";
 
 // One function handling the whole session lifecycle, to stay well inside
@@ -13,6 +14,8 @@ import {
 //   POST /api/auth { action: "login" }  -> sets the session cookie
 //   POST /api/auth { action: "logout" } -> clears it
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader("Cache-Control", "no-store");
+
   if (req.method === "GET") {
     return res.status(200).json({
       authenticated: isAuthenticated(req),
@@ -21,6 +24,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === "POST") {
+    // Refuse a cross-site sign-in attempt before spending any CPU on it.
+    if (!sameOrigin(req)) {
+      return res.status(403).json({ error: "Cross-site request refused." });
+    }
     const { action, password } = (req.body ?? {}) as Record<string, unknown>;
 
     if (action === "logout") {
