@@ -32,7 +32,11 @@ ok('garbage cookie rejected', !auth.isAuthenticated(req('unkwn_session=garbage')
 
 // tamper with the signature
 const [payload, sig] = [token.slice(0, token.lastIndexOf('.')), token.slice(token.lastIndexOf('.') + 1)];
-ok('flipped signature rejected', !auth.isAuthenticated(req(`unkwn_session=${payload}.${sig.slice(0, -1)}A`)));
+// Flip to a character that is definitely different — substituting a fixed
+// letter is a no-op whenever the signature already ends in that letter, which
+// made this assertion pass vacuously about one run in sixty-four.
+const flipped = sig.slice(0, -1) + (sig.endsWith('A') ? 'B' : 'A');
+ok('flipped signature rejected', !auth.isAuthenticated(req(`unkwn_session=${payload}.${flipped}`)));
 ok('signature stripped rejected', !auth.isAuthenticated(req(`unkwn_session=${payload}.`)));
 ok('extra dot injection rejected', !auth.isAuthenticated(req(`unkwn_session=${payload}.x.${sig}`)));
 
@@ -46,7 +50,19 @@ const crypto = await import('node:crypto');
 const key = crypto.pbkdf2Sync(process.env.ADMIN_PASSWORD, 'unkwnphoto/session-key/v1', 120000, 32, 'sha256');
 const expiredSig = crypto.createHmac('sha256', key).update(expiredPayload).digest('base64url');
 ok('correctly signed but EXPIRED cookie rejected', !auth.isAuthenticated(req(`unkwn_session=${expiredPayload}.${expiredSig}`)));
-ok('signing key is the stretched one (not raw password)', auth.isAuthenticated(req(`unkwn_session=${expiredPayload.replace(/./, expiredPayload[0])}.${expiredSig}`)) === false);
+
+// The same construction with a valid expiry MUST be accepted — otherwise the
+// expiry test above would pass for the wrong reason (e.g. a broken key).
+const livePayload = Buffer.from(JSON.stringify({ exp: Date.now() + 60_000 })).toString('base64url');
+const liveSig = crypto.createHmac('sha256', key).update(livePayload).digest('base64url');
+ok('independently signed, unexpired cookie accepted (key derivation matches)',
+   auth.isAuthenticated(req(`unkwn_session=${livePayload}.${liveSig}`)));
+
+// Changing the password must invalidate existing sessions.
+const otherKey = crypto.pbkdf2Sync('a different password', 'unkwnphoto/session-key/v1', 120000, 32, 'sha256');
+const otherSig = crypto.createHmac('sha256', otherKey).update(livePayload).digest('base64url');
+ok('cookie signed under a different password rejected',
+   !auth.isAuthenticated(req(`unkwn_session=${livePayload}.${otherSig}`)));
 
 // prove the key really is stretched: the naive derivation must NOT verify
 const naiveKey = `unkwnphoto/derived/${process.env.ADMIN_PASSWORD}`;

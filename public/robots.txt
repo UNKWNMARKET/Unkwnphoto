@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# The admin page is deliberately not listed here. Naming it would advertise
+# it to anyone who reads this file; it carries a noindex tag instead.
+
+Sitemap: https://unkwnphoto.com/sitemap.xml

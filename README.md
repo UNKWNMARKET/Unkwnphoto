@@ -25,6 +25,40 @@ Add them, then redeploy so the running functions can see them.
 also reports which commit is live and whether storage reached the runtime —
 never the values themselves.
 
+## Putting it on unkwnphoto.com
+
+The code is already set up for it: canonical URLs, the share card, icons and
+the sitemap all point at `unkwnphoto.com`. What's left needs your accounts.
+
+1. **Buy the domain.** Any registrar works — Cloudflare and Porkbun sell at
+   cost; Namecheap and Squarespace Domains are fine too. Buying it through
+   **Vercel** (Project → Settings → Domains → Buy) is the least work, because
+   it wires the DNS up for you and steps 2–3 disappear.
+2. **Add it to the project.** Vercel → your project → Settings → Domains →
+   Add, and enter `unkwnphoto.com`. Add `www.unkwnphoto.com` too; Vercel will
+   offer to redirect one to the other — point `www` at the bare domain so
+   there is a single canonical address.
+3. **Point the DNS at Vercel**, at whichever registrar holds the domain.
+   Vercel shows the exact values on that screen; take them from there rather
+   than from here, since they occasionally change:
+
+   | Type | Name | Value |
+   | --- | --- | --- |
+   | `A` | `@` | `76.76.21.21` |
+   | `CNAME` | `www` | `cname.vercel-dns.com` |
+
+   If the registrar offers to delegate nameservers to Vercel instead, that
+   also works and is tidier.
+4. **Wait.** DNS usually propagates in minutes, occasionally a few hours.
+   Vercel issues the HTTPS certificate automatically once it resolves — you
+   don't need to do anything for SSL.
+5. **Check it.** `https://unkwnphoto.com` should load, `www` should redirect
+   to it, and `https://unkwnphoto.com/api/health` should report
+   `adminConfigured: true`.
+
+Nothing in the code needs changing when the domain goes live — it keeps
+working on the `.vercel.app` address throughout.
+
 ## Using it
 
 Go to **/admin** and sign in. There is no link to it anywhere on the public
