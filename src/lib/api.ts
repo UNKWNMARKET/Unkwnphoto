@@ -1,7 +1,14 @@
-import { upload } from "@vercel/blob/client";
 import type { Album, Library, Photo } from "../types";
 
 const EMPTY: Library = { version: 2, albums: [], photos: [] };
+
+/** The server answered, but with a failure. Distinct from "nothing answered". */
+export class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -10,9 +17,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (res.status === 204) return undefined as T;
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: { error?: string } | null = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // A proxy or error page returned HTML; fall through to a generic message.
+  }
   if (!res.ok) {
-    throw new Error((data && data.error) || "Something went wrong. Try again.");
+    throw new HttpError(res.status, data?.error || "Something went wrong. Try again.");
   }
   return data as T;
 }
@@ -22,9 +34,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function getLibrary(): Promise<Library> {
   try {
     return await request<Library>("/api/library");
-  } catch {
-    // No backend (e.g. a static preview) — show an empty portfolio rather
-    // than an error page.
+  } catch (err) {
+    // A reachable server that reported a problem is a real error and must be
+    // shown as one. "No albums yet" and "we can't reach storage" are very
+    // different claims, and telling him the first when the second is true
+    // would read as though his work had vanished.
+    if (err instanceof HttpError) throw err;
+    // Nothing answered at all — a static preview with no API behind it.
+    // An empty portfolio is the honest reading of that.
     return EMPTY;
   }
 }
@@ -152,6 +169,10 @@ export async function uploadPhotos(
     width?: number;
     height?: number;
   }[] = [];
+
+  // Loaded on demand: the upload client is a large dependency and only the
+  // owner ever uploads, so visitors should never download it.
+  const { upload } = await import("@vercel/blob/client");
 
   let done = 0;
   onProgress?.(0, files.length);

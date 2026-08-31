@@ -11,10 +11,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.api.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.api.json --noEmit",
+    "test": "node --experimental-strip-types --no-warnings tests/auth.test.mts",
+    "check": "npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
-    "@vercel/blob": "^0.27.3",
+    "@vercel/blob": "^2.8.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

@@ -34,10 +34,34 @@ export function authConfigured(): boolean {
 // SESSION_SECRET is optional: without it we derive a key from the password so
 // the owner only has to set one variable. Changing the password then
 // invalidates every existing session, which is the behaviour you want anyway.
-function signingKey(): string {
+//
+// The derivation is deliberately slow, and that is the whole point. A session
+// cookie is `payload.HMAC(payload, key)`, which anyone holding a cookie can
+// verify offline. If the key were just the password concatenated with a
+// string, each guess would cost one SHA-256 — so a stolen cookie would be an
+// offline cracking oracle and the expensive login hashing below would buy
+// nothing. Stretching the key first makes an offline guess cost exactly as
+// much as an online one.
+//
+// Derived keys are memoised per process so warm invocations don't re-pay it.
+let cachedSigningKey: { source: string; key: Buffer } | null = null;
+
+function signingKey(): Buffer {
   const explicit = process.env.SESSION_SECRET;
-  if (explicit && explicit.length > 0) return explicit;
-  return `unkwnphoto/derived/${adminPassword() ?? ""}`;
+  // An explicit secret is assumed to be high-entropy, so it needs no stretching.
+  if (explicit && explicit.length > 0) return Buffer.from(explicit, "utf8");
+
+  const source = adminPassword() ?? "";
+  if (cachedSigningKey && cachedSigningKey.source === source) return cachedSigningKey.key;
+  const key = crypto.pbkdf2Sync(
+    source,
+    "unkwnphoto/session-key/v1",
+    KDF_ROUNDS,
+    KDF_KEYLEN,
+    "sha256"
+  );
+  cachedSigningKey = { source, key };
+  return key;
 }
 
 function sign(payload: string): string {
@@ -52,13 +76,32 @@ function equalConstantTime(a: string, b: string): boolean {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+// The expected hash never changes for a given deployment, so derive it once
+// per process rather than on every attempt. That halves the CPU an anonymous
+// caller can force this endpoint to burn.
+let cachedExpectedHash: { source: string; hash: Buffer } | null = null;
+
+function expectedPasswordHash(): Buffer | null {
+  const expected = adminPassword();
+  if (!expected) return null;
+  if (cachedExpectedHash && cachedExpectedHash.source === expected) {
+    return cachedExpectedHash.hash;
+  }
+  const hash = crypto.pbkdf2Sync(expected, KDF_SALT, KDF_ROUNDS, KDF_KEYLEN, "sha256");
+  cachedExpectedHash = { source: expected, hash };
+  return hash;
+}
+
+/** A real password is never this long; refuse before doing any work. */
+const MAX_PASSWORD_LENGTH = 256;
+
 /** Constant-time password check. Always false when nothing is configured. */
 export function passwordMatches(given: unknown): boolean {
-  const expected = adminPassword();
+  const expected = expectedPasswordHash();
   if (!expected || typeof given !== "string") return false;
-  const a = crypto.pbkdf2Sync(given, KDF_SALT, KDF_ROUNDS, KDF_KEYLEN, "sha256");
-  const b = crypto.pbkdf2Sync(expected, KDF_SALT, KDF_ROUNDS, KDF_KEYLEN, "sha256");
-  return crypto.timingSafeEqual(a, b);
+  if (given.length === 0 || given.length > MAX_PASSWORD_LENGTH) return false;
+  const candidate = crypto.pbkdf2Sync(given, KDF_SALT, KDF_ROUNDS, KDF_KEYLEN, "sha256");
+  return crypto.timingSafeEqual(candidate, expected);
 }
 
 function serializeCookie(value: string, maxAgeSeconds: number): string {
@@ -118,11 +161,34 @@ export function isAuthenticated(req: VercelRequest): boolean {
 }
 
 /**
+ * Rejects a cross-site caller. SameSite=Strict already stops the browser
+ * attaching the cookie to a cross-site request, so this is a second lock on
+ * the same door — cheap, and it doesn't depend on the browser getting
+ * SameSite right. A missing Origin header is fine: same-origin GETs and
+ * non-browser clients don't send one.
+ */
+export function sameOrigin(req: VercelRequest): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  const host = req.headers.host;
+  if (!host) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Gate for every mutating route. Responds and returns false when the caller
  * isn't the owner — note it fails CLOSED if ADMIN_PASSWORD was never set, so
  * an unconfigured deployment is locked rather than wide open.
  */
 export function requireAuth(req: VercelRequest, res: VercelResponse): boolean {
+  if (!sameOrigin(req)) {
+    res.status(403).json({ error: "Cross-site request refused." });
+    return false;
+  }
   if (!authConfigured()) {
     res.status(503).json({
       error:

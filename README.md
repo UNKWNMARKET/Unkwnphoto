@@ -17,12 +17,13 @@ Two environment variables, both set in the Vercel dashboard under
 | --- | --- | --- |
 | `BLOB_READ_WRITE_TOKEN` | yes | Added automatically when you connect a Blob store to the project. |
 | `ADMIN_PASSWORD` | yes | The password you sign in with. Make it long — it is the only thing standing between the internet and your storage. |
-| `SESSION_SECRET` | no | Signing key for the login cookie. If you leave it unset, one is derived from `ADMIN_PASSWORD`. Setting it means changing your password doesn't sign you out everywhere. |
+| `SESSION_SECRET` | no | Signing key for the login cookie. If unset, one is derived from `ADMIN_PASSWORD` by a slow key-derivation function. Setting it to a long random string is slightly better: it's faster on cold starts, and changing your password won't sign you out everywhere. |
 
 Add them, then redeploy so the running functions can see them.
 
-`GET /api/health` reports which commit is live and whether storage and the
-password reached the runtime — it never reports the values themselves.
+`GET /api/health` tells you whether a password is configured. Signed in, it
+also reports which commit is live and whether storage reached the runtime —
+never the values themselves.
 
 ## Using it
 
@@ -49,9 +50,26 @@ every request, so editing anything in devtools achieves nothing. Passwords are
 compared in constant time after a deliberately slow key derivation, which makes
 guessing at scale impractical.
 
+The cookie's signing key is itself derived through that same slow function
+rather than from the password directly. That matters more than it looks:
+anyone holding a cookie can check a signature offline, so a cheap key would
+turn the cookie into a password-cracking oracle and the slow login hashing
+would buy nothing. `npm test` covers this and 26 other cases — forged
+payloads, tampered signatures, expired-but-validly-signed cookies, and that
+everything fails closed when `ADMIN_PASSWORD` is unset.
+
 Everything that changes data — uploading, creating, renaming, deleting — is
-gated. `GET /api/library` is the only public endpoint. If `ADMIN_PASSWORD` is
-missing the admin routes fail closed rather than open.
+gated, with a same-origin check on top of `SameSite`. `GET /api/library` is
+the only public endpoint.
+
+## How the data is stored
+
+Albums and photos live in one JSON file in Blob storage. Writes are a single
+atomic overwrite guarded by the file's ETag, so two overlapping edits can't
+silently clobber one another — the second is told to reload rather than
+winning. Reads distinguish "there is no library yet" from "storage is
+unreachable", and only the first is treated as an empty portfolio; a read
+failure never becomes a write that erases everything.
 
 ## Local development
 
@@ -59,8 +77,7 @@ missing the admin routes fail closed rather than open.
 npm install
 npm run dev        # front end only, on :5173
 npx vercel dev     # front end + the API together, if you have the Vercel CLI
-npm run typecheck
-npm run build
+npm run check      # typecheck + tests + build
 ```
 
 Without the API running, the site loads and shows an empty portfolio rather
