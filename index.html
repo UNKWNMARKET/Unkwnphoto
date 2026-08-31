@@ -6,15 +6,102 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#000000" id="theme-color" />
     <meta
       name="description"
-      content="Unkwnphoto — photography portfolio. An immersive journey through light and space."
+      content="Unkwnphoto — photography by Jesse Eisdorfer."
     />
     <title>Unkwnphoto</title>
+
+    <!--
+      The opening title lives here, not in React, and its CSS is inline in the
+      head. That way the black ground and the wordmark own the very first
+      painted frame. Rendered from the bundle instead, a cold phone would show
+      a blank white screen for a second and only then begin the fade — which
+      is the usual way this effect goes wrong.
+    -->
+    <style>
+      html { background: #000; }
+      #intro {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #000;
+        display: grid;
+        place-items: center;
+        /* iOS: keep the black edge-to-edge under the notch */
+        padding: env(safe-area-inset-top) env(safe-area-inset-right)
+          env(safe-area-inset-bottom) env(safe-area-inset-left);
+        animation: intro-out 700ms cubic-bezier(0.4, 0, 0.2, 1) 1500ms both;
+      }
+      #intro span {
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: clamp(1.25rem, 6.2vw, 2.75rem);
+        font-weight: 500;
+        line-height: 1;
+        text-transform: uppercase;
+        color: #fff;
+        white-space: nowrap;
+        /* the trailing track is cancelled on the right so it stays optically centred */
+        letter-spacing: 0.34em;
+        margin-right: -0.34em;
+        animation: intro-in 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+      }
+      @keyframes intro-in {
+        from { opacity: 0; letter-spacing: 0.24em; margin-right: -0.24em; }
+        to   { opacity: 1; letter-spacing: 0.34em; margin-right: -0.34em; }
+      }
+      @keyframes intro-out {
+        to { opacity: 0; visibility: hidden; }
+      }
+      /* Honour a system preference for less motion: still black, still a
+         wordmark, just no travel and a much shorter hold. */
+      @media (prefers-reduced-motion: reduce) {
+        #intro { animation: intro-out 300ms linear 500ms both; }
+        #intro span {
+          animation: intro-in-reduced 300ms linear both;
+          letter-spacing: 0.34em;
+          margin-right: -0.34em;
+        }
+        @keyframes intro-in-reduced { from { opacity: 0; } to { opacity: 1; } }
+      }
+    </style>
   </head>
   <body>
+    <div id="intro" aria-hidden="true" role="presentation">
+      <span>Unkwnphoto</span>
+    </div>
     <div id="root"></div>
+    <script>
+      // Remove the overlay once it has faded, so it can never trap clicks.
+      // Also hand the browser chrome back to the site's own background colour.
+      (function () {
+        var intro = document.getElementById("intro");
+        if (!intro) return;
+        var done = false;
+        function finish() {
+          if (done) return;
+          done = true;
+          intro.remove();
+          try {
+            var meta = document.getElementById("theme-color");
+            var bg = getComputedStyle(document.body).backgroundColor;
+            if (meta && bg) meta.setAttribute("content", bg);
+          } catch (e) {
+            /* cosmetic only */
+          }
+        }
+        intro.addEventListener("animationend", function (e) {
+          if (e.target === intro) finish();
+        });
+        // Let an impatient visitor skip straight through.
+        intro.addEventListener("pointerdown", finish);
+        // Belt and braces: never leave the overlay up if an animation event
+        // is missed (background tab, reduced-motion quirks, older Safari).
+        setTimeout(finish, 3000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

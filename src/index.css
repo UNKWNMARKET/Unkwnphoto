@@ -1,607 +1,735 @@
-:root {
-  --ink: #eef1fb;
-  --muted: rgba(206, 214, 240, 0.6);
-  --glass: rgba(10, 12, 24, 0.4);
-  --glass-strong: rgba(7, 9, 20, 0.84);
-  --border: rgba(150, 170, 255, 0.14);
-  --accent: #93a8ff;
-  font-family: "Inter", "Helvetica Neue", Arial, system-ui, sans-serif;
+/* ==========================================================================
+   Unkwnphoto
+   A frame, not a picture. The photographs are the only thing on the page
+   that is allowed to be loud: no shadows, no rounded corners, no gradients,
+   no colour except the work itself. The only decoration is a hairline.
+   ========================================================================== */
+
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/archivo-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-* {
+:root {
+  --paper: #f7f6f3;
+  --surface: #ffffff;
+  --ink: #14130f;
+  --muted: #6b6761;
+  --rule: #e2ded6;
+  --rule-strong: #cdc8be;
+  --danger: #a3341f;
+
+  --font: "Archivo", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+
+  /* One spacing scale, used everywhere. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+  --s9: 96px;
+  --s10: 144px;
+
+  --gutter: clamp(22px, 5vw, 72px);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
-  margin: 0;
-  height: 100%;
-  background: #000;
-  color: var(--ink);
-}
-
-body {
-  overflow: hidden;
-  overscroll-behavior: none;
+html {
   -webkit-text-size-adjust: 100%;
 }
 
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* A single, consistent focus ring — visible for keyboards, invisible for mice. */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Shared micro-label: uppercase, tracked, quiet. */
+.album-card-count,
+.album-count,
+.plate-caption,
+.field-label,
+.admin-sub,
+.login-sub,
+.site-footer,
+.album-chip-count,
+.lightbox-count {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------- shell -- */
+
 .app {
-  position: relative;
-  height: 100%;
-}
-
-/* ---------- 3D universe ---------- */
-.universe {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  z-index: 0;
-  background: #03040a;
-}
-
-.universe canvas {
-  display: block;
-  touch-action: none;
-}
-
-/* ---------- HUD over the scene ---------- */
-.hud {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  pointer-events: none;
-  animation: fadeIn 1.6s ease 0.6s both;
-}
-
-.hud-top {
-  position: absolute;
-  top: clamp(1.2rem, 3vh, 2.2rem);
-  left: 0;
-  right: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.site-header {
+  display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0 clamp(1.2rem, 4vw, 3rem);
+  gap: var(--s5);
+  padding: clamp(20px, 3.4vw, 34px) var(--gutter);
+  border-bottom: 1px solid var(--rule);
 }
 
-.hud-title {
+.wordmark {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.header-link {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 2px;
+  border-bottom: 1px solid transparent;
+  transition: color 160ms var(--ease), border-color 160ms var(--ease);
+}
+
+.header-link:hover {
+  color: var(--ink);
+  border-bottom-color: var(--rule-strong);
+}
+
+.site-main {
+  flex: 1;
+  padding: clamp(40px, 7vw, 96px) var(--gutter) var(--s9);
+}
+
+.site-footer {
+  padding: var(--s7) var(--gutter) calc(var(--s7) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rule);
+}
+
+.loading {
+  min-height: 42vh;
+}
+
+.empty {
+  max-width: 46ch;
+  padding: var(--s8) 0;
+}
+
+.empty-title {
+  margin: 0 0 var(--s2);
+  font-size: clamp(1.1rem, 3vw, 1.4rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.empty-body {
   margin: 0;
-  font-size: clamp(1rem, 2.4vw, 1.4rem);
-  font-weight: 300;
-  letter-spacing: 0.36em;
-  text-indent: 0.36em;
-  text-transform: uppercase;
-  color: var(--ink);
-  text-shadow: 0 0 24px rgba(138, 162, 255, 0.45);
-}
-
-.hud .manage-link {
-  pointer-events: auto;
-}
-
-.hud-hint {
-  position: absolute;
-  bottom: clamp(1.4rem, 4vh, 2.6rem);
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 0.68rem;
-  letter-spacing: 0.42em;
-  text-indent: 0.42em;
-  text-transform: uppercase;
   color: var(--muted);
-  animation: pulse 3s ease-in-out infinite;
 }
 
-/* ---------- Photographic vignette over the 3D view ---------- */
-.vignette {
-  position: fixed;
-  inset: 0;
-  z-index: 5;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 120% 100% at 50% 45%,
-    transparent 58%,
-    rgba(8, 6, 4, 0.32) 100%
-  );
-}
-
-/* ---------- Room navigation ---------- */
-.room-fade {
-  position: fixed;
-  inset: 0;
-  z-index: 18;
-  background: #0a0908;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.28s ease;
-}
-.room-fade.on {
-  opacity: 1;
-}
-.room-nav {
-  position: fixed;
-  bottom: clamp(1.3rem, 4.5vh, 2.6rem);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  gap: 1.1rem;
-}
-.room-name {
-  font-size: 0.7rem;
-  letter-spacing: 0.26em;
-  text-indent: 0.26em;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.room-btn {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--glass);
-  backdrop-filter: blur(10px);
+.empty-body a {
   color: var(--ink);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+/* --------------------------------------------------------- album index -- */
+
+.album-index {
   display: grid;
-  place-items: center;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
-}
-.room-btn:hover {
-  border-color: var(--accent);
-}
-.room-btn:active {
-  transform: scale(0.94);
-}
-
-/* ---------- First-person tour controls ---------- */
-.tour-controls {
-  position: fixed;
-  bottom: clamp(3.4rem, 9vh, 5.4rem);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 25;
-  display: flex;
-  gap: 0.7rem;
-}
-
-.tour-btn {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  color: var(--ink);
-  font-size: 1.05rem;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  user-select: none;
-  touch-action: none;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
-}
-
-.tour-btn:hover {
-  border-color: var(--accent);
-}
-
-.tour-btn:active {
-  background: rgba(255, 255, 255, 0.14);
-  transform: scale(0.94);
-}
-
-/* ---------- Intro ---------- */
-.intro {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  border: none;
+  grid-template-columns: 1fr;
+  gap: clamp(48px, 7vw, 96px) clamp(24px, 4vw, 56px);
+  margin: 0;
   padding: 0;
-  color: var(--ink);
-  cursor: pointer;
-  /* A static soft radial veil so the starfield reads faintly behind the
-     title. Kept static (no background animation) to avoid flicker. */
-  background: radial-gradient(
-    120% 120% at 50% 50%,
-    rgba(2, 3, 9, 0.6) 0%,
-    rgba(2, 3, 9, 0.88) 70%,
-    #02030a 100%
-  );
-  transition: opacity 1.4s ease;
+  list-style: none;
+  max-width: 1500px;
 }
 
-/* On enter: fade the whole veil out (opacity only — smooth) so the
-   scene is revealed for the warp. */
-.intro-leaving {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.intro-inner {
-  text-align: center;
-  transition: transform 1.8s cubic-bezier(0.4, 0, 0.2, 1),
-    filter 1.4s ease, opacity 1.2s ease;
-}
-
-/* Title rushes toward the viewer as the field warps past. */
-.intro-leaving .intro-inner {
-  transform: scale(2.4);
-  filter: blur(10px);
-  opacity: 0;
-}
-
-.intro-kicker {
-  display: block;
-  margin-bottom: 1.4rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.52em;
-  text-indent: 0.52em;
-  text-transform: uppercase;
-  color: rgba(220, 200, 170, 0.7);
-  opacity: 0;
-  animation: fadeIn 1.6s ease 0.1s forwards;
-}
-
-.intro-title {
-  margin: 0;
-  font-size: clamp(2.4rem, 8.5vw, 5.4rem);
-  font-weight: 300;
-  letter-spacing: 0.42em;
-  text-indent: 0.42em;
-  text-transform: uppercase;
-  opacity: 0;
-  animation: fadeUp 2.4s ease 0.3s forwards;
-  text-shadow: 0 0 50px rgba(255, 220, 170, 0.25);
-}
-
-.intro-cta {
-  display: block;
-  margin-top: 1.8rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.5em;
-  text-indent: 0.5em;
-  text-transform: uppercase;
-  color: var(--muted);
-  opacity: 0;
-  animation: fadeIn 1.6s ease 2s forwards, pulse 2.6s ease-in-out 3.4s infinite;
-}
-
-@keyframes fadeUp {
-  0% {
-    opacity: 0;
-    transform: translateY(14px);
-    filter: blur(6px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
+@media (min-width: 760px) {
+  .album-index {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@keyframes fadeIn {
-  to {
-    opacity: 1;
+@media (min-width: 1400px) {
+  .album-index {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
-
-/* ---------- Stage / gallery ---------- */
-.stage {
+/* Covers are navigation, so they may be cropped to a common shape — that is
+   what makes the index read as an ordered set rather than a ragged pile. */
+.album-card-frame {
   position: relative;
-  z-index: 10;
-  animation: stageIn 1.4s ease both;
-}
-
-@keyframes stageIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.gallery-wrap {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: clamp(3rem, 8vh, 7rem) clamp(1rem, 4vw, 3rem) 6rem;
-}
-
-.gallery-header {
-  text-align: center;
-  margin-bottom: clamp(2.5rem, 6vh, 5rem);
-}
-
-.gallery-title {
-  margin: 0;
-  font-size: clamp(1.8rem, 5vw, 3rem);
-  font-weight: 300;
-  letter-spacing: 0.34em;
-  text-indent: 0.34em;
-  text-transform: uppercase;
-  text-shadow: 0 0 30px rgba(138, 162, 255, 0.3);
-}
-
-.gallery-sub {
-  margin: 0.8rem 0 1.6rem;
-  color: var(--muted);
-  letter-spacing: 0.18em;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-}
-
-.manage-link {
-  background: var(--glass);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  padding: 0.5rem 1.1rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: color 0.2s, border-color 0.2s;
-}
-
-.manage-link:hover {
-  color: var(--ink);
-  border-color: var(--accent);
-}
-
-.gallery-status {
-  text-align: center;
-  color: var(--muted);
-  margin-top: 3rem;
-}
-
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: clamp(1rem, 2.4vw, 1.8rem);
-}
-
-.card {
-  text-align: left;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  color: var(--ink);
-  transition: transform 0.35s ease, border-color 0.35s ease,
-    box-shadow 0.35s ease;
+  background: var(--surface);
+  border: 1px solid var(--rule);
 }
 
-.card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(138, 162, 255, 0.5);
-  box-shadow: 0 18px 50px rgba(20, 30, 80, 0.5);
-}
-
-.card-media {
-  aspect-ratio: 3 / 2;
-  overflow: hidden;
-}
-
-.card-media img {
+.album-card-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
-  transition: transform 0.6s ease;
+  transition: transform 900ms var(--ease), opacity 300ms linear;
 }
 
-.card:hover .card-media img {
-  transform: scale(1.06);
+.album-card-link:hover .album-card-image {
+  transform: scale(1.022);
 }
 
-.card-body {
-  padding: 1rem 1.1rem 1.2rem;
+.album-card-placeholder {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--paper) 0 10px,
+    var(--surface) 10px 20px
+  );
 }
 
-.card-title {
-  margin: 0 0 0.35rem;
-  font-size: 1rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+.album-card-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  margin-top: var(--s4);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--rule);
+  transition: border-color 200ms var(--ease);
 }
 
-.card-desc {
+.album-card-link:hover .album-card-meta {
+  border-bottom-color: var(--ink);
+}
+
+.album-card-name {
   margin: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  font-weight: 500;
+  letter-spacing: -0.005em;
 }
 
-/* ---------- Lightbox ---------- */
+.album-card-count {
+  flex: none;
+}
+
+/* ---------------------------------------------------------- album view -- */
+
+.album-head {
+  max-width: 62ch;
+  margin-bottom: clamp(48px, 8vw, 104px);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s6);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  transition: color 160ms var(--ease);
+}
+
+.back-link:hover {
+  color: var(--ink);
+}
+
+.back-link svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.album-title {
+  margin: 0;
+  font-size: clamp(1.9rem, 5.6vw, 3.25rem);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.022em;
+}
+
+.album-description {
+  margin: var(--s4) 0 0;
+  color: var(--muted);
+  max-width: 54ch;
+}
+
+.album-count {
+  margin: var(--s5) 0 0;
+}
+
+/* Photographs are content, never cropped and never boxed. */
+.plates {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(72px, 11vw, 152px);
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.plate {
+  margin: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.plate-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.plate-button img {
+  width: 100%;
+  height: auto;
+  /* max-width is set inline per photo so a tall frame never exceeds the
+     viewport height — the maths lives with the pixel dimensions. */
+  margin: 0 auto;
+  background: var(--surface);
+}
+
+.plate-caption {
+  margin-top: var(--s4);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------ lightbox -- */
+
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 100;
+  background: #0b0b0a;
   display: grid;
   place-items: center;
-  padding: clamp(1rem, 4vw, 3rem);
-  background: rgba(2, 3, 10, 0.86);
-  backdrop-filter: blur(14px);
-  animation: fadeIn 0.3s ease both;
+  padding: clamp(16px, 4vw, 56px);
+  padding-top: max(clamp(16px, 4vw, 56px), env(safe-area-inset-top));
+  padding-bottom: max(clamp(16px, 4vw, 56px), env(safe-area-inset-bottom));
+  animation: fade-in 220ms var(--ease) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .lightbox-figure {
   margin: 0;
-  max-width: min(1100px, 92vw);
-  max-height: 88vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-}
-
-.lightbox-img {
+  justify-content: center;
+  gap: var(--s4);
+  min-height: 0;
   max-width: 100%;
-  max-height: 74vh;
+  max-height: 100%;
+}
+
+.lightbox-figure img {
+  max-width: 100%;
+  /* A percentage max-height here resolves to `none`, because the flex parent
+     has no definite height — so the photograph would overflow the screen and
+     push the caption out of view. Measure against the viewport instead,
+     leaving room for the padding and the caption line. */
+  max-height: calc(100vh - 2 * clamp(16px, 4vw, 56px) - 56px);
+  max-height: calc(100dvh - 2 * clamp(16px, 4vw, 56px) - 56px);
+  width: auto;
+  height: auto;
+  min-height: 0;
   object-fit: contain;
-  border-radius: 10px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 
-.lightbox-caption {
-  text-align: center;
-  max-width: 60ch;
+.lightbox-figure figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.lightbox-caption h2 {
-  margin: 0 0 0.4rem;
-  font-weight: 400;
-  letter-spacing: 0.08em;
+.lightbox-title {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f2f0ed;
 }
 
-.lightbox-caption p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.55;
+.lightbox-count {
+  color: #8a8a86;
 }
 
 .lightbox-close,
 .lightbox-nav {
-  position: fixed;
-  background: var(--glass);
-  border: 1px solid var(--border);
-  color: var(--ink);
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  background: none;
+  color: #f2f0ed;
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  border-radius: 999px;
-  line-height: 1;
-  transition: border-color 0.2s, transform 0.2s;
+  opacity: 0.62;
+  transition: opacity 160ms var(--ease);
 }
 
 .lightbox-close:hover,
 .lightbox-nav:hover {
-  border-color: var(--accent);
+  opacity: 1;
+}
+
+.lightbox-close svg,
+.lightbox-nav svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .lightbox-close {
-  top: 1.4rem;
-  right: 1.6rem;
-  width: 44px;
-  height: 44px;
-  font-size: 1.6rem;
+  top: max(8px, env(safe-area-inset-top));
+  right: max(8px, env(safe-area-inset-right));
 }
 
-.lightbox-nav {
+.lightbox-nav.prev {
+  left: max(4px, env(safe-area-inset-left));
   top: 50%;
   transform: translateY(-50%);
-  width: 52px;
-  height: 52px;
-  font-size: 2rem;
 }
 
-.lightbox-nav:hover {
-  transform: translateY(-50%) scale(1.08);
+.lightbox-nav.next {
+  right: max(4px, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.lightbox-prev {
-  left: 1.4rem;
+/* --------------------------------------------------------------- forms -- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
 }
 
-.lightbox-next {
-  right: 1.4rem;
+.field.grow {
+  flex: 1;
+  min-width: 0;
 }
 
-/* ---------- Manage panel ---------- */
-.manage {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
+input[type="text"],
+input[type="password"],
+input:not([type]) {
+  width: 100%;
+  padding: 11px 13px;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  font-size: 15px;
+  transition: border-color 160ms var(--ease);
+  /* 16px on iOS stops Safari zooming the page on focus */
+}
+
+@media (max-width: 640px) {
+  input[type="text"],
+  input[type="password"],
+  input:not([type]) {
+    font-size: 16px;
+  }
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--s5);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease), color 160ms var(--ease),
+    border-color 160ms var(--ease), opacity 160ms var(--ease);
+}
+
+.button.primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.button.primary:hover:not(:disabled) {
+  background: #000;
+}
+
+.button.ghost {
+  border-color: var(--rule-strong);
+  color: var(--muted);
+}
+
+.button.ghost:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.button.danger {
+  border-color: var(--rule-strong);
+  color: var(--danger);
+}
+
+.button.danger:hover {
+  border-color: var(--danger);
+}
+
+.button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.form-error {
+  margin: var(--s4) 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.form-error.banner {
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--danger);
+  background: var(--surface);
+}
+
+.notice {
+  margin: var(--s4) 0 0;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.notice code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------- login -- */
+
+.login {
   display: grid;
   place-items: center;
-  padding: 1.2rem;
-  background: rgba(2, 3, 10, 0.7);
-  backdrop-filter: blur(10px);
-  animation: fadeIn 0.25s ease both;
+  min-height: 52vh;
 }
 
-.manage-panel {
-  width: min(680px, 100%);
-  max-height: 90vh;
-  overflow-y: auto;
-  background: var(--glass-strong);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 1.6rem 1.6rem 2rem;
-}
-
-.manage-head {
+.login-form {
+  width: 100%;
+  max-width: 340px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.2rem;
+  flex-direction: column;
+  gap: var(--s4);
 }
 
-.manage-head h2 {
+.login-title {
   margin: 0;
-  font-weight: 400;
-  letter-spacing: 0.12em;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.login-sub {
+  margin: calc(var(--s2) * -1) 0 var(--s2);
+}
+
+/* --------------------------------------------------------------- admin -- */
+
+.admin {
+  max-width: 940px;
+  margin: 0 auto;
+}
+
+.admin-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s5);
+  padding-bottom: var(--s5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.admin-sub {
+  margin: var(--s1) 0 0;
+}
+
+.admin-section {
+  padding: var(--s7) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-section-title {
+  margin: 0 0 var(--s4);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-size: 1.1rem;
+  color: var(--muted);
 }
 
-.manage-close {
-  width: 38px;
-  height: 38px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--ink);
-  font-size: 1.4rem;
+.album-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-bottom: var(--s5);
+}
+
+.album-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 40px;
+  padding: 0 var(--s4);
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  font-size: 13px;
   cursor: pointer;
+  transition: border-color 160ms var(--ease), background-color 160ms var(--ease);
 }
 
-/* ---------- Drag & drop upload zone ---------- */
+.album-chip:hover {
+  border-color: var(--ink);
+}
+
+.album-chip.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.album-chip.active .album-chip-count {
+  color: rgba(247, 246, 243, 0.6);
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.inline-form input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.admin-album-head {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s4);
+  margin-bottom: var(--s6);
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------ dropzone -- */
+
 .dropzone {
-  border: 1.5px dashed rgba(170, 185, 235, 0.35);
-  border-radius: 14px;
-  padding: 1.6rem 1.2rem;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--s2);
+  min-height: 168px;
+  padding: var(--s6) var(--s5);
+  border: 1px dashed var(--rule-strong);
+  background: var(--surface);
   text-align: center;
   cursor: pointer;
-  margin-bottom: 1.2rem;
-  transition: border-color 0.15s, background 0.15s;
-  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 160ms var(--ease), background-color 160ms var(--ease);
 }
 
 .dropzone:hover,
 .dropzone.over {
-  border-color: var(--accent);
-  background: rgba(140, 160, 255, 0.07);
+  border-color: var(--ink);
+  border-style: solid;
 }
 
 .dropzone.busy {
@@ -609,246 +737,162 @@ body {
 }
 
 .dropzone-title {
-  font-size: 0.95rem;
-  letter-spacing: 0.06em;
-  color: var(--ink);
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .dropzone-sub {
-  margin-top: 0.45rem;
-  font-size: 0.78rem;
+  margin: 0;
+  font-size: 13px;
   color: var(--muted);
 }
 
 .dropzone-bar {
-  margin: 0.9rem auto 0;
-  width: min(320px, 90%);
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
+  width: min(280px, 70vw);
+  height: 2px;
+  margin-top: var(--s2);
+  background: var(--rule);
 }
 
 .dropzone-bar-fill {
   height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #7d96ff, #5d72e6);
-  transition: width 0.3s ease;
+  background: var(--ink);
+  transition: width 260ms var(--ease);
 }
 
-.edit-title,
-.edit-desc {
-  font: inherit;
-  color: var(--ink);
-  background: transparent;
+/* ----------------------------------------------------------- photo list -- */
+
+.photo-rows {
+  margin: var(--s6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.photo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.photo-row-thumb {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+}
+
+.photo-row-title {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
   border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 0.25rem 0.45rem;
-  width: 100%;
-  transition: border-color 0.15s, background 0.15s;
+  background: none;
+  font-size: 15px;
 }
 
-.edit-title {
+.photo-row-title:hover {
+  border-color: var(--rule);
+  background: var(--surface);
+}
+
+.photo-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  flex: none;
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 160ms var(--ease);
+}
+
+.icon-button:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+.icon-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.text-button {
+  min-height: 34px;
+  padding: 0 var(--s3);
+  border: 1px solid transparent;
+  background: none;
+  font-size: 11px;
   font-weight: 500;
-}
-
-.edit-desc {
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.edit-title:hover,
-.edit-desc:hover {
-  border-color: var(--border);
-}
-
-.edit-title:focus,
-.edit-desc:focus {
-  outline: none;
-  border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.manage-form {
-  display: grid;
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.field {
-  display: grid;
-  gap: 0.4rem;
-  font-size: 0.78rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
-}
-
-.field input[type="text"],
-.field textarea,
-.field input[type="file"] {
-  font: inherit;
-  text-transform: none;
-  letter-spacing: normal;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.7rem 0.8rem;
-}
-
-.field textarea {
-  resize: vertical;
-}
-
-.manage-submit {
-  justify-self: start;
-  background: linear-gradient(120deg, #7d96ff, #5d72e6);
-  border: none;
-  color: #fff;
-  padding: 0.75rem 1.6rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
   cursor: pointer;
+  transition: color 160ms var(--ease), border-color 160ms var(--ease);
 }
 
-.manage-submit:disabled {
-  opacity: 0.6;
+.text-button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+
+.text-button.on,
+.text-button:disabled {
+  color: var(--ink);
+  opacity: 1;
   cursor: default;
 }
 
-.manage-error {
-  color: #ff9a9a;
-  margin: 0;
-  font-size: 0.85rem;
+.text-button.danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
-.manage-list h3 {
-  font-weight: 400;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  color: var(--muted);
-  margin: 0 0 0.8rem;
-}
-
-.manage-list ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.7rem;
-}
-
-.manage-list li {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.manage-list li img {
-  width: 64px;
-  height: 48px;
-  object-fit: cover;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.manage-list-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.manage-list-meta strong {
-  font-weight: 500;
-}
-
-.manage-list-meta span {
-  color: var(--muted);
-  font-size: 0.82rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.manage-delete {
-  background: transparent;
-  border: 1px solid rgba(255, 120, 120, 0.4);
-  color: #ff9a9a;
-  border-radius: 999px;
-  padding: 0.4rem 0.9rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-/* ---------- Mobile ---------- */
-@media (max-width: 600px) {
-  .intro-title {
-    font-size: clamp(1.3rem, 7.4vw, 2.1rem);
-    letter-spacing: 0.16em;
-    text-indent: 0.16em;
-    white-space: nowrap;
+/* On a phone the row stacks so the name field keeps a usable width. */
+@media (max-width: 640px) {
+  .photo-row {
+    flex-wrap: wrap;
   }
 
-  .intro-cta {
-    font-size: 0.66rem;
-    letter-spacing: 0.36em;
-    text-indent: 0.36em;
+  .photo-row-title {
+    order: 1;
+    flex-basis: calc(100% - 80px);
   }
 
-  .hud-top {
-    padding: 0 1rem;
+  .photo-row-actions {
+    order: 2;
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
-  .hud-title {
-    font-size: 0.82rem;
-    letter-spacing: 0.24em;
-    text-indent: 0.24em;
-  }
-
-  .hud .manage-link {
-    padding: 0.45rem 0.8rem;
-    font-size: 0.62rem;
-    letter-spacing: 0.12em;
-  }
-
-  .hud-hint {
-    font-size: 0.58rem;
-    letter-spacing: 0.3em;
-    text-indent: 0.3em;
-  }
-
-  .lightbox-nav {
-    width: 42px;
-    height: 42px;
-    font-size: 1.6rem;
-  }
-
-  .lightbox-prev {
-    left: 0.6rem;
-  }
-
-  .lightbox-next {
-    right: 0.6rem;
+  .admin-head {
+    flex-direction: column;
+    gap: var(--s4);
   }
 }
+
+/* ------------------------------------------------------ reduced motion -- */
 
 @media (prefers-reduced-motion: reduce) {
-  .intro,
-  .intro-title,
-  .intro-cta,
-  .stage {
-    animation-duration: 0.01ms;
-    animation-iteration-count: 1;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .album-card-link:hover .album-card-image {
+    transform: none;
   }
 }

@@ -1,100 +1,72 @@
 # Unkwnphoto
 
-An immersive photography portfolio for **Unkwnphoto**.
+A photography portfolio: public albums for visitors, a private page for you to
+add and name them.
 
-- The site opens on a black screen where the name **Unkwnphoto** fades in with a
-  **click to enter** prompt.
-- Entering flies you into a real-time 3D solar system (WebGL): a blooming sun,
-  textured and lit planets from Mercury to Neptune — Saturn's rings, Earth's
-  clouds and moon — all rotating against a deep, drifting starfield.
-- Your photos float as framed panels along the journey. **Scroll to travel
-  through the system**, passing each planet and photo; clicking a photo opens a
-  full-screen viewer with arrow-key and on-screen navigation.
-- Photos are managed through a small **back end**: upload images with a title and
-  description from the **Manage photos** panel, and they are stored on the server
-  and served to the gallery.
+- **Front end** — React + TypeScript + Vite, one hand-written stylesheet, no UI
+  framework. The whole site is ~240 KB.
+- **Back end** — Vercel Serverless Functions in `api/`, with Vercel Blob for
+  both the image files and the album index. No database.
 
-## Tech stack
+## Setting it up
 
-- **Front end:** React + TypeScript, built with Vite. The solar system is
-  rendered with three.js via react-three-fiber, drei and postprocessing (bloom).
-- **Back end:** Express + TypeScript with `multer` for uploads. Image files are
-  saved to `uploads/` and their metadata to `data/photos.json`.
+Two environment variables, both set in the Vercel dashboard under
+**Settings → Environment Variables**:
 
-## Getting started
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `BLOB_READ_WRITE_TOKEN` | yes | Added automatically when you connect a Blob store to the project. |
+| `ADMIN_PASSWORD` | yes | The password you sign in with. Make it long — it is the only thing standing between the internet and your storage. |
+| `SESSION_SECRET` | no | Signing key for the login cookie. If you leave it unset, one is derived from `ADMIN_PASSWORD`. Setting it means changing your password doesn't sign you out everywhere. |
+
+Add them, then redeploy so the running functions can see them.
+
+`GET /api/health` reports which commit is live and whether storage and the
+password reached the runtime — it never reports the values themselves.
+
+## Using it
+
+Go to **/admin** and sign in. There is no link to it anywhere on the public
+site; visitors never see that the page exists.
+
+- **Create an album**, then drag photos onto it — or tap to pick them. As many
+  at once as you like.
+- Photos are **named from their filenames** on upload (`old-truck_1.jpg`
+  becomes "Old Truck 1"); click any name to change it.
+- Rename an album by editing its name field. Set any photo as the album's
+  cover, reorder with the arrows, delete what you don't want.
+
+Uploads go straight from your browser to Blob storage, so they aren't capped by
+the 4.5 MB serverless request limit — a full-resolution photo is fine (up to
+25 MB each).
+
+## How the login works
+
+There is no session store, because serverless functions don't have one. Signing
+in sets an `HttpOnly`, `Secure`, `SameSite=Strict` cookie holding an expiry
+signed with HMAC-SHA256. Every protected route re-verifies that signature on
+every request, so editing anything in devtools achieves nothing. Passwords are
+compared in constant time after a deliberately slow key derivation, which makes
+guessing at scale impractical.
+
+Everything that changes data — uploading, creating, renaming, deleting — is
+gated. `GET /api/library` is the only public endpoint. If `ADMIN_PASSWORD` is
+missing the admin routes fail closed rather than open.
+
+## Local development
 
 ```bash
 npm install
-npm run dev
+npm run dev        # front end only, on :5173
+npx vercel dev     # front end + the API together, if you have the Vercel CLI
+npm run typecheck
+npm run build
 ```
 
-`npm run dev` starts both servers at once:
-
-- Front end: <http://localhost:5173> (open this one)
-- API: <http://localhost:3001>
-
-The Vite dev server proxies `/api` and `/uploads` to the Express server, so the
-app works from a single URL during development.
-
-## Uploading photos
-
-1. Open <http://localhost:5173>, click to enter, then click **Manage photos**.
-2. Choose an image, add a title and description, and click **Upload photo**.
-3. The gallery updates immediately. Use the **Delete** buttons to remove photos.
-
-Three sample placeholder images ship in `public/samples/` so the gallery looks
-alive on first run — delete them once you add your own.
-
-## Production build
-
-```bash
-npm run build   # compiles the server and bundles the client into dist/
-npm start       # serves the API and the built site from http://localhost:3001
-```
-
-When `dist/` exists, the Express server also serves the front end, so a single
-process runs the whole site.
-
-## Deploying (public URL)
-
-This repo includes `render.yaml`, a one-click blueprint for [Render](https://render.com).
-
-1. Push this repo to GitHub (already done if you got here from a GitHub link).
-2. On Render, choose **New → Blueprint** and select this repository.
-3. Render reads `render.yaml`, runs `npm install && npm run build`, then
-   `npm start`, and gives you a public URL like `https://unkwnphoto.onrender.com`.
-
-The single Express process serves both the API and the built site, so no extra
-configuration is needed.
-
-**Note on uploads:** on Render's free plan the filesystem is ephemeral, so photos
-uploaded through **Manage photos** are cleared whenever the service restarts or
-redeploys. For permanent storage, attach a Render persistent disk (paid) or move
-uploads to object storage (S3 / Cloudinary) — ask and this can be wired up.
-
-## Project layout
-
-```
-server/index.ts        Express API: list, upload, delete photos
-src/                    React front end
-  components/
-    Intro.tsx           Black screen + "click to enter"
-    Universe.tsx        3D solar system (react-three-fiber) + photo panels
-    Lightbox.tsx        Full-screen photo viewer
-    Manage.tsx          Upload / delete panel
-data/photos.json        Photo metadata (created at runtime)
-uploads/                Uploaded image files (created at runtime)
-public/samples/         Placeholder images
-public/textures/        Planet & sun textures
-public/fonts/           Space Grotesk (in-scene labels)
-```
+Without the API running, the site loads and shows an empty portfolio rather
+than an error.
 
 ## Credits
 
-- Planet & sun textures: [threex.planets](https://github.com/jeromeetienne/threex.planets)
-  by Jerome Etienne (MIT).
-- In-scene typeface: [Space Grotesk](https://github.com/floriankarsten/space-grotesk)
-  (SIL Open Font License 1.1).
-- Visitor character ("HVGirl") and ocean-wave normal map from the
-  [Babylon.js](https://github.com/BabylonJS/Assets) / [three.js](https://github.com/mrdoob/three.js)
-  example assets (Apache-2.0 / MIT).
+In-scene typeface: [Archivo](https://fonts.google.com/specimen/Archivo),
+SIL Open Font License 1.1, self-hosted in `public/fonts`.
